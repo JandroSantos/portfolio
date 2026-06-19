@@ -25,21 +25,37 @@ export default function StudiesPage() {
       background={`radial-gradient(130% 80% at 50% -10%, ${w.deep}40 0%, #060a05 55%)`}
     >
       {/* ---- Hero ---- */}
-      <section className="mx-auto max-w-6xl px-5 pb-12 pt-32 sm:px-8 sm:pt-40">
-        <FadeIn className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: w.bg }}>
-          <span>$</span>
-          <span>{s.eyebrow}</span>
-        </FadeIn>
-        <h1 className="heading-kinetic mt-4 text-[clamp(3.5rem,15vw,12rem)] leading-[0.8] text-bone">
-          {s.title}
-        </h1>
-        <FadeIn delay={0.15} className="mt-6 max-w-xl">
-          <DecodeText
-            text={s.intro}
-            trigger={lang}
-            className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
+      <section className="mx-auto grid max-w-6xl items-center gap-8 px-5 pb-12 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <FadeIn className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: w.bg }}>
+            <span>$</span>
+            <span>{s.eyebrow}</span>
+          </FadeIn>
+          <h1 className="heading-kinetic mt-4 text-[clamp(3.5rem,15vw,12rem)] leading-[0.8] text-bone">
+            {s.title}
+          </h1>
+          <FadeIn delay={0.15} className="mt-6 max-w-xl">
+            <DecodeText
+              text={s.intro}
+              trigger={lang}
+              className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
+            />
+          </FadeIn>
+        </div>
+
+        {/* Figurine — layout-id matches the carousel for the "fly-in" transition */}
+        <div className="relative hidden h-[55vh] items-end justify-center lg:flex">
+          <div aria-hidden className="absolute bottom-0 h-[70%] w-[70%] rounded-full blur-[80px]" style={{ background: w.deep, opacity: 0.4 }} />
+          <motion.img
+            layoutId="world-figurine"
+            src={nerd.image}
+            alt="The Student"
+            draggable={false}
+            className="h-full w-auto select-none object-contain object-bottom"
+            style={{ filter: `drop-shadow(0 40px 60px ${w.deep}aa)` }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           />
-        </FadeIn>
+        </div>
       </section>
 
       {/* ---- Self-typing editor + contribution heatmap ---- */}

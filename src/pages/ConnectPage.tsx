@@ -60,14 +60,13 @@ export default function ConnectPage() {
           <div aria-hidden className="absolute bottom-0 h-[70%] w-[70%] rounded-full blur-[80px]" style={{ background: w.deep, opacity: 0.5 }} />
           <Magnet padding={220} strength={6} className="h-full">
             <motion.img
+              layoutId="world-figurine"
               src={social.image}
               alt={d.characters.social.alias}
               draggable={false}
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
               className="h-full w-auto select-none object-contain object-bottom"
               style={{ filter: `drop-shadow(0 40px 60px ${w.deep}88)` }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             />
           </Magnet>
         </div>
