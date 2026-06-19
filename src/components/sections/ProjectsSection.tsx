@@ -1,11 +1,17 @@
 import { useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
 import { CHARACTERS } from '@/data/characters';
 import { useLanguage } from '@/hooks/useLanguage';
 import Section from './Section';
 
+// Import project images
+import mcpServerImg from '@/assets/projects/mcp_server.png';
+import aiDashboardImg from '@/assets/projects/ai_dashboard.png';
+import webExperienceImg from '@/assets/projects/web_experience.png';
+
 const builder = CHARACTERS[1];
+const PROJECT_IMAGES = [mcpServerImg, aiDashboardImg, webExperienceImg];
 
 type ProjectItem = {
   number: string;
@@ -20,8 +26,24 @@ export default function ProjectsSection() {
   const p = d.projects;
 
   return (
-    <Section id="projects" character={builder} eyebrow={p.eyebrow} title={p.title}>
-      <div className="relative mx-auto max-w-5xl">
+    <Section id="projects" character={builder} eyebrow={p.eyebrow} title={p.title} className="relative">
+      {/* Background ambient light orb */}
+      <div
+        className="ambient-blur-orb -right-36 -top-36 h-96 w-96"
+        style={{
+          background: `radial-gradient(circle, ${builder.world.bg} 0%, transparent 70%)`,
+          opacity: 0.15,
+        }}
+      />
+      <div
+        className="ambient-blur-orb -left-36 -bottom-36 h-96 w-96"
+        style={{
+          background: `radial-gradient(circle, ${builder.world.deep} 0%, transparent 70%)`,
+          opacity: 0.1,
+        }}
+      />
+
+      <div className="relative mx-auto max-w-5xl z-10">
         {p.items.map((project, i) => (
           <ProjectCard
             key={project.number}
@@ -29,6 +51,7 @@ export default function ProjectsSection() {
             index={i}
             total={p.items.length}
             viewLabel={p.view}
+            image={PROJECT_IMAGES[i] || mcpServerImg}
           />
         ))}
       </div>
@@ -38,92 +61,108 @@ export default function ProjectsSection() {
 
 function ProjectCard({
   project,
-  index,
-  total,
   viewLabel,
+  image,
 }: {
   project: ProjectItem;
   index: number;
   total: number;
   viewLabel: string;
+  image: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start end', 'start start'],
-  });
-
-  // Cards behind shrink slightly so the stack reads as depth.
-  const targetScale = 1 - (total - 1 - index) * 0.04;
-  const scale = useTransform(scrollYProgress, [0, 1], [0.9, targetScale]);
 
   return (
-    <div ref={ref} className="sticky mb-6" style={{ top: `calc(14vh + ${index * 22}px)` }}>
+    <div ref={ref} className="mb-16 last:mb-0">
       <motion.article
-        style={{ scale }}
-        className="relative overflow-hidden rounded-[28px] p-6 sm:rounded-[40px] sm:p-9"
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-10% 0px' }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        className="glass-panel relative overflow-hidden rounded-[28px] p-6 sm:rounded-[40px] sm:p-9"
       >
+        {/* Ambient glow inside the card matching active world color */}
         <div
-          className="absolute inset-0 -z-10 rounded-[28px] sm:rounded-[40px]"
+          className="absolute inset-0 -z-10 rounded-[28px] sm:rounded-[40px] opacity-[0.08]"
           style={{
-            background: `color-mix(in srgb, ${builder.world.bg} 16%, #0c0c0c)`,
-            border: `1.5px solid color-mix(in srgb, ${builder.world.bg} 40%, transparent)`,
+            background: `radial-gradient(100% 100% at 85% 0%, ${builder.world.bg} 0%, transparent 100%)`,
           }}
         />
-        {/* Top row */}
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-4 sm:gap-6">
-            <span
-              className="font-display text-[clamp(3rem,9vw,7rem)] leading-none"
-              style={{ color: builder.world.bg }}
-            >
-              {project.number}
-            </span>
-            <div className="pt-1 sm:pt-3">
-              <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-bone-dim">
-                {project.category}
+
+        {/* Dynamic layout: Text columns + Visual mockups */}
+        <div className="grid gap-6 lg:grid-cols-[1.25fr_1fr] lg:gap-10 items-center">
+          
+          {/* Left Side: Info & Stack */}
+          <div className="flex flex-col h-full justify-between gap-5">
+            <div>
+              <div className="flex items-start gap-4 sm:gap-6">
+                <span
+                  className="font-display text-[clamp(2.5rem,7vw,4.5rem)] leading-none transition-colors duration-700"
+                  style={{ color: builder.world.bg }}
+                >
+                  {project.number}
+                </span>
+                <div className="pt-0.5 sm:pt-2">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-bone-dim">
+                    {project.category}
+                  </p>
+                  <h3 className="mt-1 font-display text-[clamp(1.3rem,3.5vw,2.2rem)] uppercase leading-tight text-bone">
+                    {project.name}
+                  </h3>
+                </div>
+              </div>
+
+              <p className="mt-5 text-balance text-sm leading-relaxed text-bone-dim sm:text-[15px]">
+                {project.description}
               </p>
-              <h3 className="mt-1 font-display text-[clamp(1.4rem,4vw,2.6rem)] uppercase leading-tight text-bone">
-                {project.name}
-              </h3>
+            </div>
+
+            {/* Stack Tags */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              {project.stack.map((tech) => (
+                <span
+                  key={tech}
+                  className="rounded-full px-3 py-1.5 font-mono text-[10px] uppercase tracking-wider transition-colors duration-700"
+                  style={{
+                    background: `color-mix(in srgb, ${builder.world.bg} 15%, transparent)`,
+                    color: builder.world.panel,
+                  }}
+                >
+                  {tech}
+                </span>
+              ))}
             </div>
           </div>
 
-          <a
-            href="#"
-            data-cursor="hover"
-            data-cursor-label={viewLabel}
-            className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition-colors sm:h-14 sm:w-14"
-            style={{ borderColor: builder.world.bg, color: builder.world.bg }}
-          >
-            <ArrowUpRight
-              size={22}
-              className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+          {/* Right Side: Mockup Image Container with Zoom effect */}
+          <div className="relative group/mockup overflow-hidden rounded-2xl border border-white/5 bg-black/30 aspect-[16/10] flex items-center justify-center">
+            {/* Soft backdrop glow inside the mockup frame */}
+            <div
+              className="absolute left-1/2 top-1/2 -z-10 h-[80%] w-[80%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[40px] opacity-[0.15]"
+              style={{ background: builder.world.bg }}
             />
-          </a>
-        </div>
-
-        {/* Description + stack */}
-        <div className="mt-6 grid gap-5 sm:mt-8 sm:grid-cols-[1.6fr_1fr] sm:gap-8">
-          <p className="text-balance text-base leading-relaxed text-bone-dim sm:text-lg">
-            {project.description}
-          </p>
-          <div className="flex flex-wrap content-start gap-2">
-            {project.stack.map((tech) => (
-              <span
-                key={tech}
-                className="rounded-full px-3 py-1.5 font-mono text-xs uppercase tracking-wider"
-                style={{
-                  background: `color-mix(in srgb, ${builder.world.bg} 18%, transparent)`,
-                  color: builder.world.panel,
-                }}
-              >
-                {tech}
-              </span>
-            ))}
+            <img
+              src={image}
+              alt={project.name}
+              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover/mockup:scale-105"
+              loading="lazy"
+            />
+            
+            {/* Floating button */}
+            <a
+              href="#"
+              data-cursor="hover"
+              data-cursor-label={viewLabel}
+              className="absolute bottom-4 right-4 z-20 flex h-10 w-10 items-center justify-center rounded-full border bg-black/60 backdrop-blur-md transition-all duration-300 hover:scale-110"
+              style={{ borderColor: builder.world.bg, color: builder.world.bg }}
+            >
+              <ArrowUpRight size={18} />
+            </a>
           </div>
+          
         </div>
       </motion.article>
     </div>
   );
 }
+

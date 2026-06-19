@@ -1,5 +1,5 @@
-import { motion } from 'framer-motion';
-import { ArrowDownRight } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useWorld } from '@/hooks/useWorld';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PROFILE } from '@/data/content';
@@ -13,13 +13,15 @@ const NAV_IDS = ['connect', 'projects', 'experience', 'studies'] as const;
 export default function Hero() {
   const { character } = useWorld();
   const { d, lang } = useLanguage();
+  const [hoveredNav, setHoveredNav] = useState<string | null>(null);
 
   return (
     <section
       id="hero"
       className="grain relative flex h-[100svh] w-full flex-col overflow-hidden"
       style={{
-        background: `radial-gradient(120% 80% at 50% 110%, ${character.world.deep}22 0%, transparent 60%), var(--color-ink)`,
+        background: `radial-gradient(130% 90% at 50% 115%, ${character.world.deep}33 0%, ${character.world.bg}11 35%, transparent 70%), var(--color-ink)`,
+        transition: 'background 700ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       {/* Top bar */}
@@ -32,21 +34,41 @@ export default function Hero() {
           JS<span style={{ color: character.world.bg }}>.</span>
         </button>
 
-        {/* Desktop nav */}
-        <nav className="hidden items-center gap-7 md:flex">
-          {NAV_IDS.map((id, i) => (
-            <motion.button
-              key={id}
-              onClick={() => scrollToId(id)}
-              data-cursor="hover"
-              initial={{ opacity: 0, y: -16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 + i * 0.06, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-              className="font-mono text-sm uppercase tracking-[0.2em] text-bone-dim transition-colors hover:text-bone"
-            >
-              {d.nav[id]}
-            </motion.button>
-          ))}
+        {/* Desktop nav with sliding pill background */}
+        <nav className="relative hidden items-center gap-1 md:flex rounded-full border border-ink-line bg-ink-soft/40 p-1 backdrop-blur-md">
+          {NAV_IDS.map((id, i) => {
+            const isHovered = hoveredNav === id;
+            return (
+              <motion.button
+                key={id}
+                onClick={() => scrollToId(id)}
+                onMouseEnter={() => setHoveredNav(id)}
+                onMouseLeave={() => setHoveredNav(null)}
+                data-cursor="hover"
+                initial={{ opacity: 0, y: -16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + i * 0.06, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                className="relative px-4 py-2 font-mono text-xs font-medium uppercase tracking-[0.2em] text-bone-dim transition-colors hover:text-bone"
+              >
+                <AnimatePresence>
+                  {isHovered && (
+                    <motion.span
+                      layoutId="nav-pill"
+                      className="absolute inset-0 -z-10 rounded-full"
+                      style={{
+                        background: `color-mix(in srgb, ${character.world.bg} 15%, rgba(255, 255, 255, 0.05))`
+                      }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    />
+                  )}
+                </AnimatePresence>
+                {d.nav[id]}
+              </motion.button>
+            );
+          })}
         </nav>
 
         {/* Right cluster: status + language */}
@@ -77,34 +99,42 @@ export default function Hero() {
 
       {/* Center: name + magnetic character */}
       <div className="relative flex flex-1 items-stretch justify-center">
-        {/* Magnetic figure, rising from the bottom — the head reaches the name */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center">
+        {/* Magnetic figure with glowing ambient halo */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center h-[42vh] sm:h-[50vh]">
           <Magnet
             padding={180}
             strength={4}
-            className="pointer-events-auto h-[52vh] w-auto sm:h-[66vh]"
+            className="pointer-events-auto relative flex items-end justify-center h-full w-auto"
           >
+            {/* Ambient character color halo */}
+            <div
+              aria-hidden
+              className="absolute bottom-12 left-1/2 -z-10 h-[65%] w-[130%] -translate-x-1/2 rounded-full blur-[80px] opacity-50 transition-all duration-700"
+              style={{
+                background: `radial-gradient(circle, ${character.world.bg} 0%, ${character.world.deep} 70%)`,
+              }}
+            />
             <img
               src={character.image}
               alt={`${PROFILE.name} — ${d.characters[character.key].alias}`}
               draggable={false}
-              className="h-full w-auto select-none object-contain object-bottom"
-              style={{ filter: `drop-shadow(0 30px 60px ${character.world.deep}66)` }}
+              className="relative z-10 h-[92%] w-auto select-none object-contain object-bottom transition-all duration-700"
+              style={{ filter: `drop-shadow(0 20px 40px ${character.world.deep}aa)` }}
             />
           </Magnet>
         </div>
 
         {/* The name, anchored to the upper third so both lines stay readable */}
-        <div className="pointer-events-none absolute inset-x-0 top-[7%] z-20 px-3 text-center sm:top-[6%]">
+        <div className="pointer-events-none absolute inset-x-0 top-[12%] z-20 px-3 text-center sm:top-[10%]">
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15, duration: 1, ease: [0.16, 1, 0.3, 1] }}
             className="heading-kinetic text-bone"
           >
-            <span className="block text-[20vw] leading-[0.78] sm:text-[16vw]">JANDRO</span>
+            <span className="block text-[13vw] leading-[0.8] sm:text-[9vw]">JANDRO</span>
             <span
-              className="block text-[20vw] leading-[0.78] text-outline sm:text-[16vw]"
+              className="block text-[13vw] leading-[0.8] text-outline sm:text-[9vw] transition-colors duration-700"
               style={{ color: character.world.bg }}
             >
               SANTOS
@@ -129,6 +159,7 @@ export default function Hero() {
           />
         </motion.div>
 
+        {/* Custom mouse wheel scroll indicator */}
         <motion.button
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -136,17 +167,28 @@ export default function Hero() {
           onClick={() => scrollToId('navigator')}
           data-cursor="hover"
           data-cursor-label={d.meta.scroll}
-          className="group flex items-center gap-2 text-right"
+          className="group flex items-center gap-3 text-right"
         >
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone-dim sm:text-xs">
             {d.meta.explore}
           </span>
-          <ArrowDownRight
-            className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-1 sm:h-5 sm:w-5"
-            style={{ color: character.world.bg }}
-          />
+          <div className="flex h-8 w-5 items-center justify-center rounded-full border-2 border-bone-dim/30 p-1 transition-colors group-hover:border-bone">
+            <motion.div
+              animate={{
+                y: [-3, 3, -3],
+              }}
+              transition={{
+                duration: 1.6,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+              className="h-1.5 w-1 rounded-full transition-colors duration-700"
+              style={{ background: character.world.bg }}
+            />
+          </div>
         </motion.button>
       </div>
     </section>
   );
 }
+

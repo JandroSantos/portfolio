@@ -8,7 +8,7 @@ import {
   type MotionValue,
 } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CornerDownRight } from 'lucide-react';
-import { CHARACTERS, CHARACTER_COUNT, getByIndex } from '@/data/characters';
+import { CHARACTERS, CHARACTER_COUNT, getByIndex, type Character } from '@/data/characters';
 import { SECTION_FOR } from '@/data/content';
 import { useWorld } from '@/hooks/useWorld';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -47,7 +47,7 @@ function slotStyle(role: Role, isMobile: boolean): React.CSSProperties {
         ...base,
         left: '50%',
         bottom: 0,
-        height: isMobile ? '58%' : '90%',
+        height: isMobile ? '46%' : '66%',
         filter: 'none',
         opacity: 1,
         zIndex: 20,
@@ -56,8 +56,8 @@ function slotStyle(role: Role, isMobile: boolean): React.CSSProperties {
       return {
         ...base,
         left: isMobile ? '18%' : '28%',
-        bottom: isMobile ? '30%' : '12%',
-        height: isMobile ? '16%' : '30%',
+        bottom: isMobile ? '28%' : '14%',
+        height: isMobile ? '13%' : '22%',
         filter: 'blur(2px)',
         opacity: 0.8,
         zIndex: 10,
@@ -66,8 +66,8 @@ function slotStyle(role: Role, isMobile: boolean): React.CSSProperties {
       return {
         ...base,
         left: isMobile ? '82%' : '72%',
-        bottom: isMobile ? '30%' : '12%',
-        height: isMobile ? '16%' : '30%',
+        bottom: isMobile ? '28%' : '14%',
+        height: isMobile ? '13%' : '22%',
         filter: 'blur(2px)',
         opacity: 0.8,
         zIndex: 10,
@@ -76,8 +76,8 @@ function slotStyle(role: Role, isMobile: boolean): React.CSSProperties {
       return {
         ...base,
         left: '50%',
-        bottom: isMobile ? '32%' : '14%',
-        height: isMobile ? '12%' : '22%',
+        bottom: isMobile ? '30%' : '16%',
+        height: isMobile ? '10%' : '15%',
         filter: 'blur(4px)',
         opacity: 0.85,
         zIndex: 5,
@@ -87,7 +87,7 @@ function slotStyle(role: Role, isMobile: boolean): React.CSSProperties {
 
 /** Role transform (scale + centering) for the inner figure layer. */
 function innerTransform(role: Role, isMobile: boolean): string {
-  if (role === 'center') return `translateX(-50%) scale(${isMobile ? 1.15 : 1.5})`;
+  if (role === 'center') return `translateX(-50%) scale(${isMobile ? 1.05 : 1.25})`;
   return 'translateX(-50%) scale(1)';
 }
 
@@ -109,6 +109,7 @@ function Figure({
   alt,
   onClick,
   isCenter,
+  character,
 }: {
   role: Role;
   isMobile: boolean;
@@ -118,6 +119,7 @@ function Figure({
   alt: string;
   onClick: () => void;
   isCenter: boolean;
+  character: Character;
 }) {
   const range = PARALLAX_RANGE[role];
   // back/center drift *with* the pointer, sides drift slightly against it for a diorama feel.
@@ -131,7 +133,18 @@ function Figure({
       onClick={onClick}
       data-cursor={isCenter ? 'hover' : undefined}
       data-cursor-label={isCenter ? 'Entrar' : undefined}
+      className="relative"
     >
+      {/* Dynamic soft ambient halo behind center figure */}
+      {isCenter && (
+        <div
+          aria-hidden
+          className="absolute left-1/2 top-1/2 -z-10 h-[65%] w-[110%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[80px] opacity-65 transition-all duration-700 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle, ${character.world.accent}55 0%, ${character.world.deep} 100%)`,
+          }}
+        />
+      )}
       {/* Outer layer: pointer parallax (x/y motion values only). */}
       <motion.div className="h-full w-full" style={{ x, y, willChange: 'transform' }}>
         {/* Inner layer: role transform (scale + centering) morphing over 700ms. */}
@@ -399,6 +412,7 @@ export default function CharacterCarousel() {
               src={c.image}
               alt={`${d.characters[c.key].alias} — ${d.characters[c.key].section}`}
               isCenter={role === 'center'}
+              character={c}
               onClick={() => {
                 if (role === 'left') guardedNav(prev);
                 else if (role === 'right') guardedNav(next);

@@ -164,6 +164,81 @@ body {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Premium Glassmorphism Panel */
+  .glass-panel {
+    background: rgba(14, 14, 14, 0.45);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    transition: border-color 0.4s var(--ease-smooth), background 0.4s var(--ease-smooth), box-shadow 0.4s var(--ease-smooth), transform 0.4s var(--ease-smooth);
+  }
+  
+  .glass-panel:hover {
+    background: rgba(18, 18, 18, 0.55);
+    border-color: color-mix(in srgb, var(--world-bg) 35%, rgba(255, 255, 255, 0.15));
+    box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5), 0 0 20px -2px color-mix(in srgb, var(--world-bg) 25%, transparent);
+  }
+
+  /* High-fidelity macOS/CRT Terminal styles */
+  .terminal-window {
+    background: rgba(7, 10, 8, 0.85);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid color-mix(in srgb, var(--world-bg) 20%, rgba(255, 255, 255, 0.05));
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.9), 0 20px 50px rgba(0, 0, 0, 0.8);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .terminal-window::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.04));
+    background-size: 100% 4px, 6px 100%;
+    opacity: 0.85;
+    z-index: 10;
+  }
+
+  .terminal-text-glow {
+    text-shadow: 0 0 6px color-mix(in srgb, var(--world-bg) 70%, transparent);
+  }
+
+  /* Ambient Blur Orbs */
+  .ambient-blur-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.12;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    will-change: transform;
+    animation: pulse-glow 10s ease-in-out infinite alternate;
+  }
+}
+
+/* Subtle dot-matrix overlay on body */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(236, 230, 223, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.9;
+}
+
+@keyframes pulse-glow {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(4%, 6%) scale(1.15);
+  }
 }
 
 /* ------------------------------------------------------------
@@ -177,5 +252,8 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  .ambient-blur-orb {
+    animation: none !important;
   }
 }
