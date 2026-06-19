@@ -1,5 +1,6 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
+import { on } from '@/lib/bus';
 import { ArrowDownRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useWorld } from '@/hooks/useWorld';
@@ -10,6 +11,7 @@ import DecodeText from './ui/DecodeText';
 import LanguageToggle from './ui/LanguageToggle';
 import ParticleName from './effects/ParticleName';
 import { scrollToId } from '@/lib/scroll';
+import { emit } from '@/lib/bus';
 
 const NAV_IDS = ['connect', 'projects', 'experience', 'studies'] as const;
 const PATH_BY_NAV: Record<(typeof NAV_IDS)[number], string> = {
@@ -19,10 +21,38 @@ const PATH_BY_NAV: Record<(typeof NAV_IDS)[number], string> = {
   studies: '/studies',
 };
 
+const MATERIALS = ['gold', 'code', 'filings', 'blueprint'] as const;
+
 export default function Hero() {
   const { character } = useWorld();
   const { d, lang } = useLanguage();
   const navigate = useNavigate();
+  const logoClickCount = useRef(0);
+  const logoClickTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [materialIdx, setMaterialIdx] = useState(0);
+
+  const handleLogoClick = useCallback(() => {
+    scrollToId('hero');
+    logoClickCount.current += 1;
+    clearTimeout(logoClickTimer.current);
+    if (logoClickCount.current >= 5) {
+      logoClickCount.current = 0;
+      emit('party');
+    } else {
+      logoClickTimer.current = setTimeout(() => { logoClickCount.current = 0; }, 1200);
+    }
+  }, []);
+
+  const cycleMaterial = useCallback(() => {
+    setMaterialIdx((i) => (i + 1) % MATERIALS.length);
+  }, []);
+
+  useEffect(() => {
+    return on('particle-material', (mat) => {
+      const idx = MATERIALS.indexOf(mat as typeof MATERIALS[number]);
+      if (idx !== -1) setMaterialIdx(idx);
+    });
+  }, []);
 
   // Scroll-linked parallax — layers drift at different rates as the
   // hero hands off to the carousel below.
@@ -67,8 +97,9 @@ export default function Hero() {
       {/* Top bar */}
       <header className="relative z-30 flex items-center justify-between px-5 pt-6 sm:px-10 sm:pt-8">
         <button
-          onClick={() => scrollToId('hero')}
+          onClick={handleLogoClick}
           data-cursor="hover"
+          data-cursor-label="×5 🎉"
           className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-bone"
         >
           JS<span style={{ color: character.world.bg }}>.</span>
@@ -139,14 +170,19 @@ export default function Hero() {
           </Magnet>
         </motion.div>
 
-        {/* The name, forged from a tilted gold particle grid that scatters
-            from the cursor. Accessible name lives in the sr-only heading. */}
+        {/* The name — click to cycle particle materials (gold→code→filings→blueprint) */}
         <motion.div
           style={{ y: nameY }}
-          className="pointer-events-none absolute inset-x-0 top-0 z-20 h-[64%]"
+          onClick={cycleMaterial}
+          className="absolute inset-x-0 top-0 z-20 h-[64%] cursor-pointer"
           aria-hidden
+          title="Click to change material"
         >
-          <ParticleName lines={['JANDRO', 'SANTOS']} material="gold" className="h-full w-full" />
+          <ParticleName
+            lines={['JANDRO', 'SANTOS']}
+            material={MATERIALS[materialIdx]}
+            className="h-full w-full"
+          />
         </motion.div>
         <h1 className="sr-only">{PROFILE.name}</h1>
       </div>

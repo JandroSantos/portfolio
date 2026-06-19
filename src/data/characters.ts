@@ -4,10 +4,10 @@
  * The carousel rotates through them; the whole page recolors to match.
  */
 
-import socialImg from '@/assets/characters/social.png';
-import builderImg from '@/assets/characters/builder.png';
-import execImg from '@/assets/characters/exec.png';
-import nerdImg from '@/assets/characters/nerd.png';
+import socialImg from '@/assets/characters/social.webp';
+import builderImg from '@/assets/characters/builder.webp';
+import execImg from '@/assets/characters/exec.webp';
+import nerdImg from '@/assets/characters/nerd.webp';
 
 export type CharacterKey = 'social' | 'builder' | 'exec' | 'nerd';
 
