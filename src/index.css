@@ -1,0 +1,181 @@
+@import 'tailwindcss';
+
+/* ============================================================
+   JANDRO SANTOS — PORTFOLIO
+   Design system: four character "worlds", one developer.
+   ============================================================ */
+
+@theme {
+  /* Fonts */
+  --font-display: 'Anton', 'Arial Narrow', sans-serif;
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Neutral base — the stage the characters perform on */
+  --color-ink: #0c0c0c;
+  --color-ink-soft: #161616;
+  --color-ink-line: #262626;
+  --color-bone: #ece7df;
+  --color-bone-dim: #b8b2a8;
+
+  /* Character world: SOCIAL / CONNECTOR (coral) */
+  --color-social: #f4845f;
+  --color-social-panel: #f79b7f;
+  --color-social-deep: #c5543a;
+
+  /* Character world: EXECUTIVE (navy + gold) */
+  --color-exec: #34467e;
+  --color-exec-panel: #46598f;
+  --color-exec-deep: #1d2950;
+  --color-exec-gold: #d2ab5b;
+
+  /* Character world: BUILDER (construction amber) */
+  --color-builder: #e8902b;
+  --color-builder-panel: #f3a948;
+  --color-builder-deep: #b3680f;
+
+  /* Character world: NERD / STUDENT (sage) */
+  --color-nerd: #7fae5f;
+  --color-nerd-panel: #98c179;
+  --color-nerd-deep: #547f38;
+
+  /* Eases — the personality of every motion */
+  --ease-smooth: cubic-bezier(0.6, 0, 0.25, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Motion timing */
+  --dur-world: 700ms;
+}
+
+/* ------------------------------------------------------------
+   Dynamic "world" — JS swaps these when the active
+   character changes, recoloring the entire page.
+   Default = SOCIAL (coral).
+   ------------------------------------------------------------ */
+:root {
+  --world-bg: #f4845f;
+  --world-panel: #f79b7f;
+  --world-deep: #c5543a;
+  --world-accent: #ffffff;
+  --world-ink: #1a1a1a;
+
+  --vh: 1vh;
+  color-scheme: dark;
+}
+
+@supports (height: 1svh) {
+  :root {
+    --vh: 1svh;
+  }
+}
+
+/* ------------------------------------------------------------
+   Base
+   ------------------------------------------------------------ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: auto; /* Lenis owns scrolling */
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-bone);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  font-feature-settings: 'ss01';
+}
+
+/* Hide native scrollbar (Lenis provides the experience) */
+body::-webkit-scrollbar {
+  display: none;
+}
+body {
+  scrollbar-width: none;
+}
+
+/* Selection inherits the active world */
+::selection {
+  background: var(--world-bg);
+  color: var(--world-ink);
+}
+
+/* Disable native cursor on devices with a real pointer (custom cursor takes over) */
+@media (hover: hover) and (pointer: fine) {
+  body.has-custom-cursor,
+  body.has-custom-cursor * {
+    cursor: none;
+  }
+}
+
+/* ------------------------------------------------------------
+   Reusable utilities
+   ------------------------------------------------------------ */
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+
+  /* Kinetic poster heading — the signature display type */
+  .heading-kinetic {
+    font-family: var(--font-display);
+    text-transform: uppercase;
+    line-height: 0.85;
+    letter-spacing: -0.02em;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Outlined display text (stroke only) — stroke scales with the type */
+  .text-outline {
+    -webkit-text-stroke: clamp(2px, 0.45vw, 7px) currentColor;
+    color: transparent;
+  }
+
+  /* Film grain overlay */
+  .grain::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    pointer-events: none;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+
+  /* Hide scrollbar utility */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* ------------------------------------------------------------
+   Reduced motion — honor it, but keep the soul (opacity/color)
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
