@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { TerminalSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { WorldProvider } from './hooks/useWorld';
+import { LanguageProvider } from './hooks/useLanguage';
 import { useSmoothScroll } from './hooks/useSmoothScroll';
 import { useEasterEgg } from './hooks/useEasterEgg';
 import Cursor from './components/ui/Cursor';
+import Preloader from './components/Preloader';
+import LanguageSwitchOverlay from './components/ui/LanguageSwitchOverlay';
 import Hero from './components/Hero';
 import CharacterCarousel from './components/carousel/CharacterCarousel';
 import ConnectSection from './components/sections/ConnectSection';
@@ -16,10 +20,14 @@ import Terminal from './components/terminal/Terminal';
 function Page() {
   useSmoothScroll();
   const { open, setOpen, close } = useEasterEgg();
+  const [loaded, setLoaded] = useState(false);
 
   return (
     <>
+      {!loaded && <Preloader onDone={() => setLoaded(true)} />}
+
       <Cursor />
+      <LanguageSwitchOverlay />
 
       <main>
         <Hero />
@@ -53,8 +61,10 @@ function Page() {
 
 export default function App() {
   return (
-    <WorldProvider>
-      <Page />
-    </WorldProvider>
+    <LanguageProvider>
+      <WorldProvider>
+        <Page />
+      </WorldProvider>
+    </LanguageProvider>
   );
 }

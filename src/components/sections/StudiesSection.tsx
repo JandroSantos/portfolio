@@ -1,18 +1,21 @@
 import { GraduationCap } from 'lucide-react';
 import { CHARACTERS } from '@/data/characters';
-import { STUDIES, SKILLS } from '@/data/content';
+import { useLanguage } from '@/hooks/useLanguage';
 import Section from './Section';
 import FadeIn from '../ui/FadeIn';
 
 const nerd = CHARACTERS[3];
 
 export default function StudiesSection() {
+  const { d } = useLanguage();
+  const s = d.studies;
+
   return (
-    <Section id="studies" character={nerd} eyebrow="04 — Cómo aprendí" title="Studies">
+    <Section id="studies" character={nerd} eyebrow={s.eyebrow} title={s.title}>
       <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Education list */}
         <div className="space-y-5">
-          {STUDIES.map((study, i) => (
+          {s.items.map((study, i) => (
             <FadeIn
               key={study.title}
               delay={i * 0.08}
@@ -21,10 +24,7 @@ export default function StudiesSection() {
               style={{ ['--accent' as string]: nerd.world.bg }}
             >
               <div className="flex items-start gap-4">
-                <GraduationCap
-                  className="mt-1 h-6 w-6 shrink-0"
-                  style={{ color: nerd.world.bg }}
-                />
+                <GraduationCap className="mt-1 h-6 w-6 shrink-0" style={{ color: nerd.world.bg }} />
                 <div>
                   <h3 className="text-lg font-semibold leading-snug text-bone sm:text-xl">
                     {study.title}
@@ -51,7 +51,7 @@ export default function StudiesSection() {
             </div>
             {/* Skills as command output */}
             <div className="space-y-4 p-5 font-mono text-sm sm:p-6">
-              {SKILLS.map((group) => (
+              {s.skills.map((group) => (
                 <div key={group.label}>
                   <p className="text-bone-dim">
                     <span style={{ color: nerd.world.bg }}>$</span> ls {group.label.toLowerCase()}/
@@ -67,7 +67,10 @@ export default function StudiesSection() {
               ))}
               <p className="pt-1 text-bone-dim">
                 <span style={{ color: nerd.world.bg }}>$</span>{' '}
-                <span className="inline-block h-4 w-2 animate-pulse align-middle" style={{ background: nerd.world.bg }} />
+                <span
+                  className="inline-block h-4 w-2 animate-pulse align-middle"
+                  style={{ background: nerd.world.bg }}
+                />
               </p>
             </div>
           </div>

@@ -1,12 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AnimatePresence,
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  type MotionValue,
+} from 'framer-motion';
 import { ArrowLeft, ArrowRight, CornerDownRight } from 'lucide-react';
 import { CHARACTERS, CHARACTER_COUNT, getByIndex } from '@/data/characters';
 import { SECTION_FOR } from '@/data/content';
 import { useWorld } from '@/hooks/useWorld';
+import { useLanguage } from '@/hooks/useLanguage';
 import { scrollToId } from '@/lib/scroll';
+import { hasFinePointer, prefersReducedMotion } from '@/lib/utils';
 
 type Role = 'center' | 'left' | 'right' | 'back';
+
+/** The 700ms world morph — the only "slow" easing in the component. */
+const MORPH = '700ms cubic-bezier(0.4,0,0.2,1)';
+/** Emil-standard out-easing for entrances; never ease-in. */
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 function roleFor(index: number, active: number): Role {
   const d = ((index - active) % CHARACTER_COUNT + CHARACTER_COUNT) % CHARACTER_COUNT;
@@ -16,12 +30,16 @@ function roleFor(index: number, active: number): Role {
   return 'back';
 }
 
-function roleStyle(role: Role, isMobile: boolean): React.CSSProperties {
+/**
+ * Positioning for the *outer* slot (left/bottom/size). The morph transition
+ * lives here so figures glide between slots. The inner element owns the
+ * role transform (scale) so parallax can compose on top without conflict.
+ */
+function slotStyle(role: Role, isMobile: boolean): React.CSSProperties {
   const base: React.CSSProperties = {
     position: 'absolute',
-    transition:
-      'transform 700ms cubic-bezier(0.4,0,0.2,1), filter 700ms cubic-bezier(0.4,0,0.2,1), opacity 700ms cubic-bezier(0.4,0,0.2,1), left 700ms cubic-bezier(0.4,0,0.2,1)',
-    willChange: 'transform, filter, opacity, left',
+    transition: `left ${MORPH}, bottom ${MORPH}, height ${MORPH}, opacity ${MORPH}, filter ${MORPH}`,
+    willChange: 'left, bottom, height, opacity, filter',
   };
   switch (role) {
     case 'center':
@@ -30,7 +48,6 @@ function roleStyle(role: Role, isMobile: boolean): React.CSSProperties {
         left: '50%',
         bottom: 0,
         height: isMobile ? '58%' : '90%',
-        transform: `translateX(-50%) scale(${isMobile ? 1.15 : 1.5})`,
         filter: 'none',
         opacity: 1,
         zIndex: 20,
@@ -41,7 +58,6 @@ function roleStyle(role: Role, isMobile: boolean): React.CSSProperties {
         left: isMobile ? '18%' : '28%',
         bottom: isMobile ? '30%' : '12%',
         height: isMobile ? '16%' : '30%',
-        transform: 'translateX(-50%) scale(1)',
         filter: 'blur(2px)',
         opacity: 0.8,
         zIndex: 10,
@@ -52,7 +68,6 @@ function roleStyle(role: Role, isMobile: boolean): React.CSSProperties {
         left: isMobile ? '82%' : '72%',
         bottom: isMobile ? '30%' : '12%',
         height: isMobile ? '16%' : '30%',
-        transform: 'translateX(-50%) scale(1)',
         filter: 'blur(2px)',
         opacity: 0.8,
         zIndex: 10,
@@ -63,12 +78,140 @@ function roleStyle(role: Role, isMobile: boolean): React.CSSProperties {
         left: '50%',
         bottom: isMobile ? '32%' : '14%',
         height: isMobile ? '12%' : '22%',
-        transform: 'translateX(-50%) scale(1)',
         filter: 'blur(4px)',
         opacity: 0.85,
         zIndex: 5,
       };
   }
+}
+
+/** Role transform (scale + centering) for the inner figure layer. */
+function innerTransform(role: Role, isMobile: boolean): string {
+  if (role === 'center') return `translateX(-50%) scale(${isMobile ? 1.15 : 1.5})`;
+  return 'translateX(-50%) scale(1)';
+}
+
+/** How far (px) each role drifts with the pointer. Center barely moves; depth moves more. */
+const PARALLAX_RANGE: Record<Role, { x: number; y: number }> = {
+  center: { x: 8, y: 6 },
+  left: { x: 26, y: 16 },
+  right: { x: 26, y: 16 },
+  back: { x: 40, y: 22 },
+};
+
+/** One figure. Subscribes to smoothed pointer values and drifts for parallax depth. */
+function Figure({
+  role,
+  isMobile,
+  px,
+  py,
+  src,
+  alt,
+  onClick,
+  isCenter,
+}: {
+  role: Role;
+  isMobile: boolean;
+  px: MotionValue<number>;
+  py: MotionValue<number>;
+  src: string;
+  alt: string;
+  onClick: () => void;
+  isCenter: boolean;
+}) {
+  const range = PARALLAX_RANGE[role];
+  // back/center drift *with* the pointer, sides drift slightly against it for a diorama feel.
+  const dir = role === 'left' ? -1 : 1;
+  const x = useTransform(px, [-1, 1], [-range.x * dir, range.x * dir]);
+  const y = useTransform(py, [-1, 1], [-range.y, range.y]);
+
+  return (
+    <div
+      style={{ ...slotStyle(role, isMobile), aspectRatio: '0.62 / 1' }}
+      onClick={onClick}
+      data-cursor={isCenter ? 'hover' : undefined}
+      data-cursor-label={isCenter ? 'Entrar' : undefined}
+    >
+      {/* Outer layer: pointer parallax (x/y motion values only). */}
+      <motion.div className="h-full w-full" style={{ x, y, willChange: 'transform' }}>
+        {/* Inner layer: role transform (scale + centering) morphing over 700ms. */}
+        <div
+          className="h-full w-full"
+          style={{
+            transform: innerTransform(role, isMobile),
+            transition: `transform ${MORPH}`,
+            willChange: 'transform',
+          }}
+        >
+          <img
+            src={src}
+            alt={alt}
+            draggable={false}
+            className="h-full w-full object-contain object-bottom"
+          />
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+/** Circular nav arrow with a fill-sweep on hover and a crisp press. */
+function NavArrow({
+  dir,
+  onClick,
+  ink,
+  bg,
+  reduced,
+}: {
+  dir: 'prev' | 'next';
+  onClick: () => void;
+  ink: string;
+  bg: string;
+  reduced: boolean;
+}) {
+  const Icon = dir === 'prev' ? ArrowLeft : ArrowRight;
+  return (
+    <motion.button
+      onClick={onClick}
+      aria-label={dir === 'prev' ? 'Anterior' : 'Siguiente'}
+      data-cursor="hover"
+      initial="rest"
+      whileHover="hover"
+      whileTap="tap"
+      variants={{
+        rest: { scale: 1 },
+        hover: { scale: reduced ? 1 : 1.06 },
+        tap: { scale: reduced ? 1 : 0.92 },
+      }}
+      transition={{ type: 'spring', stiffness: 520, damping: 30 }}
+      className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 sm:h-14 sm:w-14"
+      style={{ borderColor: ink, color: ink }}
+    >
+      {/* Fill that wipes up from the bottom on hover. */}
+      <motion.span
+        aria-hidden
+        className="absolute inset-0 rounded-full"
+        style={{ background: ink, originY: 1 }}
+        variants={{
+          rest: { scaleY: 0, opacity: 0 },
+          hover: { scaleY: reduced ? 0 : 1, opacity: reduced ? 0 : 1 },
+          tap: { scaleY: reduced ? 0 : 1, opacity: reduced ? 0 : 1 },
+        }}
+        transition={{ duration: 0.28, ease: EASE_OUT }}
+      />
+      <motion.span
+        className="relative z-10 flex items-center justify-center"
+        variants={{
+          rest: { color: ink, x: 0 },
+          hover: { color: bg, x: reduced ? 0 : dir === 'next' ? 2 : -2 },
+          tap: { color: bg, x: 0 },
+        }}
+        transition={{ duration: 0.2, ease: EASE_OUT }}
+      >
+        <Icon size={22} strokeWidth={2.25} />
+      </motion.span>
+    </motion.button>
+  );
 }
 
 /**
@@ -77,17 +220,35 @@ function roleStyle(role: Role, isMobile: boolean): React.CSSProperties {
  * Drag, arrows, dots and keyboard all drive it.
  */
 export default function CharacterCarousel() {
-  const { active, character, next, prev, goTo } = useWorld();
+  const { active, character, next, prev, goTo, direction } = useWorld();
+  const { d } = useLanguage();
+  const cc = d.characters[character.key];
   const [isMobile, setIsMobile] = useState(false);
+  const [hinted, setHinted] = useState(false);
   const lockRef = useRef(false);
   const dragStart = useRef<number | null>(null);
 
+  // Capabilities resolve client-side; default to the calm path during SSR/first paint.
+  const [reduced, setReduced] = useState(true);
+  const [fine, setFine] = useState(false);
+
   useEffect(() => {
+    setReduced(prefersReducedMotion());
+    setFine(hasFinePointer());
     const onResize = () => setIsMobile(window.innerWidth < 640);
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  const parallaxOn = fine && !reduced && !isMobile;
+
+  // Normalised pointer position (-1..1) smoothed by a spring; drives figure parallax.
+  const rawX = useMotionValue(0);
+  const rawY = useMotionValue(0);
+  const spring = useMemo(() => ({ stiffness: 90, damping: 22, mass: 0.5 }), []);
+  const px = useSpring(rawX, spring);
+  const py = useSpring(rawY, spring);
 
   // Keyboard arrows when the section is in view.
   useEffect(() => {
@@ -103,10 +264,21 @@ export default function CharacterCarousel() {
   const guardedNav = (fn: () => void) => {
     if (lockRef.current) return;
     lockRef.current = true;
+    setHinted(true);
     fn();
     setTimeout(() => (lockRef.current = false), 680);
   };
 
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!parallaxOn) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    rawX.set(((e.clientX - r.left) / r.width) * 2 - 1);
+    rawY.set(((e.clientY - r.top) / r.height) * 2 - 1);
+  };
+  const onPointerLeave = () => {
+    rawX.set(0);
+    rawY.set(0);
+  };
   const onPointerDown = (e: React.PointerEvent) => {
     dragStart.current = e.clientX;
   };
@@ -122,19 +294,31 @@ export default function CharacterCarousel() {
   return (
     <section
       id="navigator"
-      aria-label="Selector de secciones"
+      aria-label={d.carousel.aria}
       className="grain relative h-[100svh] w-full select-none overflow-hidden transition-[background-color] duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]"
       style={{ backgroundColor: character.world.bg }}
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
     >
+      {/* Soft radial vignette — frames the scene, deepens toward the edges. */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[1]"
+        aria-hidden
+        style={{
+          background: `radial-gradient(120% 90% at 50% 38%, transparent 52%, ${character.world.deep}22 100%)`,
+          transition: `background ${MORPH}`,
+        }}
+      />
+
       {/* Brand label */}
       <div className="absolute left-5 top-6 z-[60] sm:left-8">
         <span
           className="font-mono text-[11px] font-semibold uppercase tracking-[0.3em]"
           style={{ color: character.world.ink }}
         >
-          Jandro·OS
+          {d.carousel.brand}
         </span>
       </div>
 
@@ -155,11 +339,23 @@ export default function CharacterCarousel() {
       >
         <AnimatePresence mode="popLayout">
           <motion.span
-            key={character.ghost}
-            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -30, filter: 'blur(8px)' }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            key={cc.ghost}
+            initial={{
+              opacity: 0,
+              y: 34,
+              x: reduced ? 0 : direction * 40,
+              scale: 0.96,
+              filter: 'blur(10px)',
+            }}
+            animate={{ opacity: 1, y: 0, x: 0, scale: 1, filter: 'blur(0px)' }}
+            exit={{
+              opacity: 0,
+              y: -34,
+              x: reduced ? 0 : direction * -40,
+              scale: 0.96,
+              filter: 'blur(10px)',
+            }}
+            transition={{ duration: 0.65, ease: EASE_OUT }}
             className="heading-kinetic whitespace-nowrap"
             style={{
               color: character.world.accent,
@@ -167,37 +363,82 @@ export default function CharacterCarousel() {
               lineHeight: 1,
             }}
           >
-            {character.ghost}
+            {cc.ghost}
           </motion.span>
         </AnimatePresence>
       </div>
 
+      {/* Floor shadow grounding the center figure. Keyed so it fades in with each world. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[3] flex justify-center" aria-hidden>
+        <motion.div
+          key={character.key}
+          initial={{ opacity: 0, scaleX: 0.7 }}
+          animate={{ opacity: reduced ? 0.45 : 0.55, scaleX: 1 }}
+          transition={{ duration: 0.6, ease: EASE_OUT }}
+          style={{
+            width: isMobile ? '62%' : '46%',
+            height: isMobile ? 70 : 130,
+            marginBottom: isMobile ? '24%' : '4%',
+            background: `radial-gradient(closest-side, ${character.world.deep} 0%, ${character.world.deep}00 72%)`,
+            filter: 'blur(6px)',
+          }}
+        />
+      </div>
+
       {/* Figures */}
-      <div className="absolute inset-0 z-[3]">
+      <div className="absolute inset-0 z-[4]">
         {CHARACTERS.map((c) => {
           const role = roleFor(c.index, active % CHARACTER_COUNT);
           return (
-            <div
+            <Figure
               key={c.key}
-              style={{ ...roleStyle(role, isMobile), aspectRatio: '0.62 / 1' }}
+              role={role}
+              isMobile={isMobile}
+              px={px}
+              py={py}
+              src={c.image}
+              alt={`${d.characters[c.key].alias} — ${d.characters[c.key].section}`}
+              isCenter={role === 'center'}
               onClick={() => {
                 if (role === 'left') guardedNav(prev);
                 else if (role === 'right') guardedNav(next);
                 else if (role === 'center') enterSection();
               }}
-              data-cursor={role === 'center' ? 'hover' : undefined}
-              data-cursor-label={role === 'center' ? 'Entrar' : undefined}
-            >
-              <img
-                src={c.image}
-                alt={`${c.alias} — ${c.section}`}
-                draggable={false}
-                className="h-full w-full object-contain object-bottom"
-              />
-            </div>
+            />
           );
         })}
       </div>
+
+      {/* Mobile swipe affordance — fades for good after the first navigation. */}
+      <AnimatePresence>
+        {isMobile && !hinted && (
+          <motion.div
+            key="swipe-hint"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: 6 }}
+            transition={{ duration: 0.4, ease: EASE_OUT }}
+            className="pointer-events-none absolute left-1/2 top-[52%] z-[55] -translate-x-1/2"
+            aria-hidden
+          >
+            <motion.div
+              className="flex items-center gap-2 rounded-full px-3 py-1.5"
+              style={{
+                background: `${character.world.ink}14`,
+                color: character.world.ink,
+              }}
+              animate={reduced ? undefined : { x: [-5, 5, -5] }}
+              transition={{ duration: 1.8, ease: 'easeInOut', repeat: Infinity }}
+            >
+              <ArrowLeft size={14} strokeWidth={2.5} style={{ opacity: 0.55 }} />
+              <span className="font-mono text-[10px] uppercase tracking-[0.25em]">
+                {d.carousel.swipe}
+              </span>
+              <ArrowRight size={14} strokeWidth={2.5} style={{ opacity: 0.55 }} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Bottom-left: title + nav */}
       <div className="absolute bottom-6 left-5 z-[60] max-w-[340px] sm:bottom-16 sm:left-12">
@@ -207,87 +448,109 @@ export default function CharacterCarousel() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -16 }}
-            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.45, ease: EASE_OUT }}
           >
             <p
               className="font-mono text-[11px] uppercase tracking-[0.3em] opacity-80"
               style={{ color: character.world.ink }}
             >
-              {character.alias}
+              {cc.alias}
             </p>
             <h2
               className="heading-kinetic mt-1 text-[clamp(2.2rem,6vw,4rem)]"
               style={{ color: character.world.accent }}
             >
-              {character.section}
+              {cc.section}
             </h2>
             <p
               className="mt-2 text-sm leading-relaxed sm:text-[15px]"
               style={{ color: character.world.ink, opacity: 0.85 }}
             >
-              {character.tagline}
+              {cc.tagline}
             </p>
           </motion.div>
         </AnimatePresence>
 
         <div className="mt-5 flex items-center gap-3">
-          <button
+          <NavArrow
+            dir="prev"
             onClick={() => guardedNav(prev)}
-            aria-label="Anterior"
-            data-cursor="hover"
-            className="flex h-12 w-12 items-center justify-center rounded-full border-2 transition-transform duration-150 hover:scale-110 sm:h-14 sm:w-14"
-            style={{ borderColor: character.world.ink, color: character.world.ink }}
-          >
-            <ArrowLeft size={22} strokeWidth={2.25} />
-          </button>
-          <button
+            ink={character.world.ink}
+            bg={character.world.bg}
+            reduced={reduced}
+          />
+          <NavArrow
+            dir="next"
             onClick={() => guardedNav(next)}
-            aria-label="Siguiente"
+            ink={character.world.ink}
+            bg={character.world.bg}
+            reduced={reduced}
+          />
+          {/* Mobile-only inline Enter — keeps the corner clear for the terminal button. */}
+          <button
+            onClick={enterSection}
             data-cursor="hover"
-            className="flex h-12 w-12 items-center justify-center rounded-full border-2 transition-transform duration-150 hover:scale-110 sm:h-14 sm:w-14"
+            className="ml-1 flex items-center gap-1.5 rounded-full border-2 px-4 py-2.5 font-display text-base uppercase sm:hidden"
             style={{ borderColor: character.world.ink, color: character.world.ink }}
           >
-            <ArrowRight size={22} strokeWidth={2.25} />
+            {d.carousel.enter}
+            <CornerDownRight size={16} strokeWidth={2.5} />
           </button>
         </div>
       </div>
 
-      {/* Bottom-right: enter CTA */}
-      <button
+      {/* Bottom-right: enter CTA (desktop) */}
+      <motion.button
         onClick={enterSection}
         data-cursor="hover"
-        data-cursor-label="Ir"
-        className="group absolute bottom-6 right-5 z-[60] flex items-center gap-2 sm:bottom-16 sm:right-12"
+        data-cursor-label={d.carousel.go}
+        initial="rest"
+        whileHover="hover"
+        whileTap="tap"
+        className="group absolute bottom-16 right-12 z-[60] hidden items-center gap-2 sm:flex"
         style={{ color: character.world.accent }}
       >
-        <span
-          className="heading-kinetic text-[clamp(1.4rem,4vw,3rem)] transition-opacity"
-          style={{ opacity: 0.95 }}
+        <motion.span
+          className="heading-kinetic text-[clamp(1.4rem,4vw,3rem)]"
+          variants={{
+            rest: { opacity: 0.95 },
+            hover: { opacity: 1 },
+            tap: { opacity: 1 },
+          }}
+          transition={{ duration: 0.2, ease: EASE_OUT }}
         >
-          Entrar
-        </span>
-        <CornerDownRight
-          className="h-6 w-6 transition-transform duration-300 group-hover:translate-x-1 group-hover:translate-y-1 sm:h-9 sm:w-9"
-          strokeWidth={2.25}
-        />
-      </button>
+          {d.carousel.enter}
+        </motion.span>
+        <motion.span
+          variants={{
+            rest: { x: 0, y: 0 },
+            hover: reduced ? { x: 0, y: 0 } : { x: 4, y: 4 },
+            tap: reduced ? { x: 0, y: 0 } : { x: 2, y: 2 },
+          }}
+          transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+        >
+          <CornerDownRight className="h-6 w-6 sm:h-9 sm:w-9" strokeWidth={2.25} />
+        </motion.span>
+      </motion.button>
 
       {/* Dots */}
       <div className="absolute bottom-3 left-1/2 z-[60] flex -translate-x-1/2 gap-2 sm:bottom-6">
         {CHARACTERS.map((c, i) => {
           const isActive = i === active % CHARACTER_COUNT;
           return (
-            <button
+            <motion.button
               key={c.key}
               onClick={() => guardedNav(() => goTo(i))}
-              aria-label={`Ir a ${getByIndex(i).section}`}
+              aria-label={`${d.carousel.go} — ${d.characters[getByIndex(i).key].section}`}
               data-cursor="hover"
-              className="h-2 rounded-full transition-all duration-300"
-              style={{
+              whileTap={reduced ? undefined : { scale: 0.85 }}
+              className="h-2 rounded-full"
+              style={{ background: character.world.ink }}
+              animate={{
                 width: isActive ? 28 : 8,
-                background: character.world.ink,
                 opacity: isActive ? 1 : 0.4,
               }}
+              transition={{ duration: 0.4, ease: EASE_OUT }}
             />
           );
         })}

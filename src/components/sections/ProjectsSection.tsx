@@ -2,17 +2,34 @@ import { useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
 import { CHARACTERS } from '@/data/characters';
-import { PROJECTS, type Project } from '@/data/content';
+import { useLanguage } from '@/hooks/useLanguage';
 import Section from './Section';
 
 const builder = CHARACTERS[1];
 
+type ProjectItem = {
+  number: string;
+  name: string;
+  category: string;
+  description: string;
+  stack: string[];
+};
+
 export default function ProjectsSection() {
+  const { d } = useLanguage();
+  const p = d.projects;
+
   return (
-    <Section id="projects" character={builder} eyebrow="02 — Lo que construyo" title="Projects">
+    <Section id="projects" character={builder} eyebrow={p.eyebrow} title={p.title}>
       <div className="relative mx-auto max-w-5xl">
-        {PROJECTS.map((project, i) => (
-          <ProjectCard key={project.number} project={project} index={i} total={PROJECTS.length} />
+        {p.items.map((project, i) => (
+          <ProjectCard
+            key={project.number}
+            project={project}
+            index={i}
+            total={p.items.length}
+            viewLabel={p.view}
+          />
         ))}
       </div>
     </Section>
@@ -23,10 +40,12 @@ function ProjectCard({
   project,
   index,
   total,
+  viewLabel,
 }: {
-  project: Project;
+  project: ProjectItem;
   index: number;
   total: number;
+  viewLabel: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -39,15 +58,10 @@ function ProjectCard({
   const scale = useTransform(scrollYProgress, [0, 1], [0.9, targetScale]);
 
   return (
-    <div
-      ref={ref}
-      className="sticky mb-6"
-      style={{ top: `calc(14vh + ${index * 22}px)` }}
-    >
+    <div ref={ref} className="sticky mb-6" style={{ top: `calc(14vh + ${index * 22}px)` }}>
       <motion.article
         style={{ scale }}
-        className="overflow-hidden rounded-[28px] border p-6 sm:rounded-[40px] sm:p-9"
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        className="relative overflow-hidden rounded-[28px] p-6 sm:rounded-[40px] sm:p-9"
       >
         <div
           className="absolute inset-0 -z-10 rounded-[28px] sm:rounded-[40px]"
@@ -76,9 +90,9 @@ function ProjectCard({
           </div>
 
           <a
-            href={project.href}
+            href="#"
             data-cursor="hover"
-            data-cursor-label="Ver"
+            data-cursor-label={viewLabel}
             className="group flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition-colors sm:h-14 sm:w-14"
             style={{ borderColor: builder.world.bg, color: builder.world.bg }}
           >

@@ -1,20 +1,18 @@
 import { motion } from 'framer-motion';
 import { ArrowDownRight } from 'lucide-react';
 import { useWorld } from '@/hooks/useWorld';
+import { useLanguage } from '@/hooks/useLanguage';
 import { PROFILE } from '@/data/content';
 import Magnet from './ui/Magnet';
 import DecodeText from './ui/DecodeText';
+import LanguageToggle from './ui/LanguageToggle';
 import { scrollToId } from '@/lib/scroll';
 
-const NAV = [
-  { label: 'Connect', id: 'connect' },
-  { label: 'Projects', id: 'projects' },
-  { label: 'Experience', id: 'experience' },
-  { label: 'Studies', id: 'studies' },
-];
+const NAV_IDS = ['connect', 'projects', 'experience', 'studies'] as const;
 
 export default function Hero() {
   const { character } = useWorld();
+  const { d, lang } = useLanguage();
 
   return (
     <section
@@ -36,42 +34,45 @@ export default function Hero() {
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-7 md:flex">
-          {NAV.map((item, i) => (
+          {NAV_IDS.map((id, i) => (
             <motion.button
-              key={item.id}
-              onClick={() => scrollToId(item.id)}
+              key={id}
+              onClick={() => scrollToId(id)}
               data-cursor="hover"
               initial={{ opacity: 0, y: -16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 + i * 0.06, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
               className="font-mono text-sm uppercase tracking-[0.2em] text-bone-dim transition-colors hover:text-bone"
             >
-              {item.label}
+              {d.nav[id]}
             </motion.button>
           ))}
         </nav>
 
-        {/* Status pill */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7, duration: 0.8 }}
-          className="hidden items-center gap-2 rounded-full border border-ink-line px-3 py-1.5 sm:flex"
-        >
-          <span className="relative flex h-2 w-2">
-            <span
-              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
-              style={{ background: character.world.bg }}
-            />
-            <span
-              className="relative inline-flex h-2 w-2 rounded-full"
-              style={{ background: character.world.bg }}
-            />
-          </span>
-          <span className="font-mono text-[11px] uppercase tracking-widest text-bone-dim">
-            Disponible
-          </span>
-        </motion.div>
+        {/* Right cluster: status + language */}
+        <div className="flex items-center gap-3">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7, duration: 0.8 }}
+            className="hidden items-center gap-2 rounded-full border border-ink-line px-3 py-1.5 sm:flex"
+          >
+            <span className="relative flex h-2 w-2">
+              <span
+                className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                style={{ background: character.world.bg }}
+              />
+              <span
+                className="relative inline-flex h-2 w-2 rounded-full"
+                style={{ background: character.world.bg }}
+              />
+            </span>
+            <span className="font-mono text-[11px] uppercase tracking-widest text-bone-dim">
+              {d.meta.available}
+            </span>
+          </motion.div>
+          <LanguageToggle />
+        </div>
       </header>
 
       {/* Center: name + magnetic character */}
@@ -85,7 +86,7 @@ export default function Hero() {
           >
             <img
               src={character.image}
-              alt={`${PROFILE.name} — ${character.alias}`}
+              alt={`${PROFILE.name} — ${d.characters[character.key].alias}`}
               draggable={false}
               className="h-full w-auto select-none object-contain object-bottom"
               style={{ filter: `drop-shadow(0 30px 60px ${character.world.deep}66)` }}
@@ -121,7 +122,8 @@ export default function Hero() {
           className="max-w-[200px] sm:max-w-xs"
         >
           <DecodeText
-            text={PROFILE.role}
+            text={d.hero.role}
+            trigger={lang}
             delay={900}
             className="font-mono text-[11px] uppercase leading-relaxed tracking-[0.15em] text-bone-dim sm:text-xs"
           />
@@ -133,14 +135,14 @@ export default function Hero() {
           transition={{ delay: 0.75, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           onClick={() => scrollToId('navigator')}
           data-cursor="hover"
-          data-cursor-label="Scroll"
+          data-cursor-label={d.meta.scroll}
           className="group flex items-center gap-2 text-right"
         >
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone-dim sm:text-xs">
-            Explora
+            {d.meta.explore}
           </span>
           <ArrowDownRight
-            className="h-4 w-4 text-bone transition-transform duration-300 group-hover:translate-y-1 sm:h-5 sm:w-5"
+            className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-1 sm:h-5 sm:w-5"
             style={{ color: character.world.bg }}
           />
         </motion.button>

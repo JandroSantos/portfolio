@@ -1,11 +1,15 @@
 import { ArrowUpRight, TerminalSquare } from 'lucide-react';
 import { CHARACTERS } from '@/data/characters';
 import { SOCIALS } from '@/data/content';
+import { useLanguage } from '@/hooks/useLanguage';
 import { scrollToId } from '@/lib/scroll';
 
 const social = CHARACTERS[0];
 
 export default function Footer({ onOpenTerminal }: { onOpenTerminal: () => void }) {
+  const { d } = useLanguage();
+  const f = d.footer;
+
   return (
     <footer
       id="contact"
@@ -14,7 +18,7 @@ export default function Footer({ onOpenTerminal }: { onOpenTerminal: () => void 
     >
       <div className="mx-auto max-w-6xl">
         <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-bone-dim">
-          ¿Hablamos?
+          {f.talkEyebrow}
         </p>
 
         <a
@@ -23,8 +27,10 @@ export default function Footer({ onOpenTerminal }: { onOpenTerminal: () => void 
           data-cursor-label="Email"
           className="group mt-4 inline-flex items-start gap-3"
         >
-          <h2 className="heading-kinetic text-[clamp(3rem,16vw,12rem)] leading-[0.8] text-bone transition-colors group-hover:text-[var(--accent)]"
-            style={{ ['--accent' as string]: social.world.bg }}>
+          <h2
+            className="heading-kinetic text-[clamp(3rem,16vw,12rem)] leading-[0.8] text-bone transition-colors group-hover:text-[var(--accent)]"
+            style={{ ['--accent' as string]: social.world.bg }}
+          >
             LET&apos;S<br />TALK
           </h2>
           <ArrowUpRight
@@ -52,7 +58,7 @@ export default function Footer({ onOpenTerminal }: { onOpenTerminal: () => void 
         {/* Bottom row */}
         <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-mono text-[11px] text-bone-dim">
-            © {new Date().getFullYear()} Jandro Santos · Hecho con obsesión por el detalle
+            © {new Date().getFullYear()} Jandro Santos · {f.credits}
           </p>
           <button
             onClick={onOpenTerminal}
@@ -62,9 +68,9 @@ export default function Footer({ onOpenTerminal }: { onOpenTerminal: () => void 
           >
             <TerminalSquare size={14} />
             <span>
-              psst — pulsa{' '}
+              {f.eggHint.lead}{' '}
               <kbd className="rounded bg-ink-line px-1.5 py-0.5 text-bone">↑↑↓↓←→←→ B A</kbd>{' '}
-              o escribe <span className="text-bone">sudo</span>
+              {f.eggHint.or} <span className="text-bone">{f.eggHint.type}</span>
             </span>
           </button>
         </div>
@@ -75,7 +81,7 @@ export default function Footer({ onOpenTerminal }: { onOpenTerminal: () => void 
           data-cursor="hover"
           className="mt-8 font-mono text-[11px] uppercase tracking-widest text-bone-dim transition-colors hover:text-bone"
         >
-          ↑ Volver arriba
+          {f.backToTop}
         </button>
       </div>
     </footer>

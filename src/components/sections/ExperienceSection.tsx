@@ -1,16 +1,19 @@
 import { CHARACTERS } from '@/data/characters';
-import { EXPERIENCE } from '@/data/content';
+import { useLanguage } from '@/hooks/useLanguage';
 import Section from './Section';
 import FadeIn from '../ui/FadeIn';
 
 const exec = CHARACTERS[2];
 
 export default function ExperienceSection() {
+  const { d } = useLanguage();
+  const e = d.experience;
+
   return (
-    <Section id="experience" character={exec} eyebrow="03 — Mi trayectoria" title="Experience">
+    <Section id="experience" character={exec} eyebrow={e.eyebrow} title={e.title}>
       <div className="mx-auto max-w-4xl">
         <ol className="relative border-l-2" style={{ borderColor: `${exec.world.bg}55` }}>
-          {EXPERIENCE.map((job, i) => (
+          {e.items.map((job, i) => (
             <li key={job.role} className="relative pb-14 pl-8 last:pb-0 sm:pl-12">
               {/* Node */}
               <span
@@ -18,8 +21,10 @@ export default function ExperienceSection() {
                 style={{ background: exec.world.accent }}
               />
               <FadeIn delay={i * 0.08} y={28}>
-                <span className="font-mono text-[11px] uppercase tracking-[0.25em]"
-                  style={{ color: exec.world.accent }}>
+                <span
+                  className="font-mono text-[11px] uppercase tracking-[0.25em]"
+                  style={{ color: exec.world.accent }}
+                >
                   {job.period}
                 </span>
                 <h3 className="mt-2 font-display text-[clamp(1.5rem,4.5vw,2.6rem)] uppercase leading-tight text-bone">
