@@ -55,9 +55,18 @@ export default function ProjectsPage() {
           </FadeIn>
         </div>
 
-        {/* Self-drawing blueprint */}
-        <FadeIn delay={0.2} className="hidden lg:block">
+        {/* Self-drawing blueprint + builder figurine overlay */}
+        <FadeIn delay={0.2} className="relative hidden lg:block">
           <BlueprintSchematic color={w.bg} className="h-auto w-full" />
+          <motion.img
+            layoutId="world-figurine"
+            src={builder.image}
+            alt="The Builder"
+            draggable={false}
+            className="pointer-events-none absolute -bottom-8 right-4 h-48 w-auto select-none object-contain object-bottom"
+            style={{ filter: `drop-shadow(0 20px 40px ${w.deep}99)` }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          />
         </FadeIn>
       </section>
 

@@ -143,12 +143,23 @@ function Figure({
             willChange: 'transform',
           }}
         >
-          <img
-            src={src}
-            alt={alt}
-            draggable={false}
-            className="h-full w-full object-contain object-bottom"
-          />
+          {isCenter ? (
+            <motion.img
+              layoutId="world-figurine"
+              src={src}
+              alt={alt}
+              draggable={false}
+              className="h-full w-full object-contain object-bottom"
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            />
+          ) : (
+            <img
+              src={src}
+              alt={alt}
+              draggable={false}
+              className="h-full w-full object-contain object-bottom"
+            />
+          )}
         </div>
       </motion.div>
     </div>

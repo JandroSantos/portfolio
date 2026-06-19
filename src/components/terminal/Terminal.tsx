@@ -169,6 +169,24 @@ export default function Terminal({ open, onClose }: TerminalProps) {
         onClose();
         setTimeout(() => emit('matrix'), 250);
         break;
+      case 'party':
+      case 'fiesta':
+        print([{ type: 'accent', text: '🎉 PARTY MODE ACTIVATED' }]);
+        onClose();
+        setTimeout(() => emit('party'), 250);
+        break;
+      case 'material':
+      case 'skin': {
+        const mat = args[0];
+        const mats = ['gold', 'code', 'filings', 'blueprint'];
+        if (mats.includes(mat)) {
+          print([{ type: 'dim', text: `→ particle material: ${mat}` }]);
+          emit('particle-material', mat);
+        } else {
+          print([{ type: 'dim', text: `materials: ${mats.join(', ')}` }]);
+        }
+        break;
+      }
       case 'clear':
         setLines([]);
         return;

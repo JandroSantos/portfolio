@@ -65,10 +65,21 @@ export default function SiteFooter({ character }: { character: Character }) {
         </div>
 
         {/* Dots to the other worlds */}
-        <div className="mt-10 flex items-center justify-between">
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-4">
           <p className="font-mono text-[11px]" style={{ color: ink, opacity: 0.6 }}>
             © {new Date().getFullYear()} Jandro Santos
           </p>
+
+          {/* Easter-egg hint */}
+          <p className="font-mono text-[10px] opacity-40" style={{ color: ink }}>
+            {d.footer.eggHint.lead}{' '}
+            <kbd className="rounded border px-1 py-0.5 text-[9px]" style={{ borderColor: `${ink}40` }}>
+              ⌘K
+            </kbd>{' '}
+            {d.footer.eggHint.or}{' '}
+            <span className="opacity-60">{d.footer.eggHint.type}</span>
+          </p>
+
           <div className="flex gap-2">
             {CHARACTERS.map((c) => (
               <button

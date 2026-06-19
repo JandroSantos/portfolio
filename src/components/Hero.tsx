@@ -1,4 +1,6 @@
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { useRef, useState, useCallback, useEffect } from 'react';
+import { on } from '@/lib/bus';
 import { ArrowDownRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useWorld } from '@/hooks/useWorld';
@@ -7,7 +9,9 @@ import { PROFILE } from '@/data/content';
 import Magnet from './ui/Magnet';
 import DecodeText from './ui/DecodeText';
 import LanguageToggle from './ui/LanguageToggle';
+import ParticleName from './effects/ParticleName';
 import { scrollToId } from '@/lib/scroll';
+import { emit } from '@/lib/bus';
 
 const NAV_IDS = ['connect', 'projects', 'experience', 'studies'] as const;
 const PATH_BY_NAV: Record<(typeof NAV_IDS)[number], string> = {
@@ -17,24 +21,85 @@ const PATH_BY_NAV: Record<(typeof NAV_IDS)[number], string> = {
   studies: '/studies',
 };
 
+const MATERIALS = ['gold', 'code', 'filings', 'blueprint'] as const;
+
 export default function Hero() {
   const { character } = useWorld();
   const { d, lang } = useLanguage();
   const navigate = useNavigate();
+  const logoClickCount = useRef(0);
+  const logoClickTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [materialIdx, setMaterialIdx] = useState(0);
+
+  const handleLogoClick = useCallback(() => {
+    scrollToId('hero');
+    logoClickCount.current += 1;
+    clearTimeout(logoClickTimer.current);
+    if (logoClickCount.current >= 5) {
+      logoClickCount.current = 0;
+      emit('party');
+    } else {
+      logoClickTimer.current = setTimeout(() => { logoClickCount.current = 0; }, 1200);
+    }
+  }, []);
+
+  const cycleMaterial = useCallback(() => {
+    setMaterialIdx((i) => (i + 1) % MATERIALS.length);
+  }, []);
+
+  useEffect(() => {
+    return on('particle-material', (mat) => {
+      const idx = MATERIALS.indexOf(mat as typeof MATERIALS[number]);
+      if (idx !== -1) setMaterialIdx(idx);
+    });
+  }, []);
+
+  // Scroll-linked parallax — layers drift at different rates as the
+  // hero hands off to the carousel below.
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const nameY = useTransform(scrollYProgress, [0, 1], [0, -150]);
+  const figureY = useTransform(scrollYProgress, [0, 1], [0, 90]);
+  const bgY = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  const cueOpacity = useTransform(scrollYProgress, [0, 0.4], [1, 0]);
 
   return (
     <section
+      ref={heroRef}
       id="hero"
       className="grain relative flex h-[100svh] w-full flex-col overflow-hidden"
       style={{
         background: `radial-gradient(120% 80% at 50% 110%, ${character.world.deep}22 0%, transparent 60%), var(--color-ink)`,
       }}
     >
+      {/* ── BACKDROP / VIDEO SLOT ─────────────────────────────────────
+          Drop a full-bleed loop here for the cinematic version:
+          <video className="h-full w-full object-cover opacity-40"
+                 autoPlay muted loop playsInline src="/hero.mp4" />
+          The animated gradient below is the fallback. */}
+      <motion.div
+        aria-hidden
+        style={{ y: bgY }}
+        className="pointer-events-none absolute inset-0 z-0"
+      >
+        <motion.div
+          className="absolute left-1/2 top-1/3 h-[120vmax] w-[120vmax] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30"
+          style={{
+            background: `conic-gradient(from 0deg, ${character.world.deep}00, ${character.world.bg}33, ${character.world.deep}00)`,
+          }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
+        />
+      </motion.div>
       {/* Top bar */}
       <header className="relative z-30 flex items-center justify-between px-5 pt-6 sm:px-10 sm:pt-8">
         <button
-          onClick={() => scrollToId('hero')}
+          onClick={handleLogoClick}
           data-cursor="hover"
+          data-cursor-label="×5 🎉"
           className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-bone"
         >
           JS<span style={{ color: character.world.bg }}>.</span>
@@ -83,10 +148,13 @@ export default function Hero() {
         </div>
       </header>
 
-      {/* Center: name + magnetic character */}
+      {/* Center: particle name + magnetic character */}
       <div className="relative flex flex-1 items-stretch justify-center">
         {/* Magnetic figure, rising from the bottom — the head reaches the name */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center">
+        <motion.div
+          style={{ y: figureY }}
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center"
+        >
           <Magnet
             padding={180}
             strength={4}
@@ -100,29 +168,30 @@ export default function Hero() {
               style={{ filter: `drop-shadow(0 30px 60px ${character.world.deep}66)` }}
             />
           </Magnet>
-        </div>
+        </motion.div>
 
-        {/* The name, anchored to the upper third so both lines stay readable */}
-        <div className="pointer-events-none absolute inset-x-0 top-[7%] z-20 px-3 text-center sm:top-[6%]">
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="heading-kinetic text-bone"
-          >
-            <span className="block text-[20vw] leading-[0.78] sm:text-[16vw]">JANDRO</span>
-            <span
-              className="block text-[20vw] leading-[0.78] text-outline sm:text-[16vw]"
-              style={{ color: character.world.bg }}
-            >
-              SANTOS
-            </span>
-          </motion.h1>
-        </div>
+        {/* The name — click to cycle particle materials (gold→code→filings→blueprint) */}
+        <motion.div
+          style={{ y: nameY }}
+          onClick={cycleMaterial}
+          className="absolute inset-x-0 top-0 z-20 h-[64%] cursor-pointer"
+          aria-hidden
+          title="Click to change material"
+        >
+          <ParticleName
+            lines={['JANDRO', 'SANTOS']}
+            material={MATERIALS[materialIdx]}
+            className="h-full w-full"
+          />
+        </motion.div>
+        <h1 className="sr-only">{PROFILE.name}</h1>
       </div>
 
-      {/* Bottom: role + scroll cue */}
-      <div className="relative z-30 flex items-end justify-between gap-4 px-5 pb-7 sm:px-10 sm:pb-10">
+      {/* Bottom: role + scroll cue — fades as the hero parallaxes away */}
+      <motion.div
+        style={{ opacity: cueOpacity }}
+        className="relative z-30 flex items-end justify-between gap-4 px-5 pb-7 sm:px-10 sm:pb-10"
+      >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -154,7 +223,7 @@ export default function Hero() {
             style={{ color: character.world.bg }}
           />
         </motion.button>
-      </div>
+      </motion.div>
     </section>
   );
 }

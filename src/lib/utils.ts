@@ -31,3 +31,14 @@ export const prefersReducedMotion = () =>
 export const hasFinePointer = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+/**
+ * Append an alpha byte to a 6-digit hex color.
+ * hexA('#f4845f', 0.2) → '#f4845f33'
+ */
+export const hexA = (hex: string, alpha: number): string => {
+  const a = Math.round(clamp(alpha, 0, 1) * 255)
+    .toString(16)
+    .padStart(2, '0');
+  return `${hex}${a}`;
+};

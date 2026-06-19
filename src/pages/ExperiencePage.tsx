@@ -35,31 +35,47 @@ export default function ExperiencePage() {
       background={`radial-gradient(130% 80% at 50% -10%, ${w.deep}66 0%, #06080f 55%)`}
     >
       {/* ---- Hero ---- */}
-      <section className="mx-auto max-w-6xl px-5 pb-12 pt-32 sm:px-8 sm:pt-40">
-        <FadeIn>
-          <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: gold }}>
-            {e.eyebrow}
-          </span>
-        </FadeIn>
-        <h1 className="heading-kinetic mt-4 text-[clamp(3.2rem,14vw,11rem)] leading-[0.82] text-bone">
-          {e.title}
-        </h1>
-        {/* Gold rule */}
-        <motion.div
-          initial={{ scaleX: 0, opacity: 0 }}
-          whileInView={{ scaleX: 1, opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-6 h-px w-40 origin-left"
-          style={{ background: `linear-gradient(90deg, ${gold}, transparent)` }}
-        />
-        <FadeIn delay={0.15} className="mt-6 max-w-xl">
-          <DecodeText
-            text={e.intro}
-            trigger={lang}
-            className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
+      <section className="mx-auto grid max-w-6xl items-center gap-8 px-5 pb-12 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <FadeIn>
+            <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: gold }}>
+              {e.eyebrow}
+            </span>
+          </FadeIn>
+          <h1 className="heading-kinetic mt-4 text-[clamp(3.2rem,14vw,11rem)] leading-[0.82] text-bone">
+            {e.title}
+          </h1>
+          {/* Gold rule */}
+          <motion.div
+            initial={{ scaleX: 0, opacity: 0 }}
+            whileInView={{ scaleX: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-6 h-px w-40 origin-left"
+            style={{ background: `linear-gradient(90deg, ${gold}, transparent)` }}
           />
-        </FadeIn>
+          <FadeIn delay={0.15} className="mt-6 max-w-xl">
+            <DecodeText
+              text={e.intro}
+              trigger={lang}
+              className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
+            />
+          </FadeIn>
+        </div>
+
+        {/* Figurine — layout-id matches the carousel for the "fly-in" transition */}
+        <div className="relative hidden h-[55vh] items-end justify-center lg:flex">
+          <div aria-hidden className="absolute bottom-0 h-[70%] w-[70%] rounded-full blur-[80px]" style={{ background: w.deep, opacity: 0.4 }} />
+          <motion.img
+            layoutId="world-figurine"
+            src={exec.image}
+            alt="The Executive"
+            draggable={false}
+            className="h-full w-auto select-none object-contain object-bottom"
+            style={{ filter: `drop-shadow(0 40px 60px ${w.deep}aa)` }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          />
+        </div>
       </section>
 
       {/* ---- Stats ---- */}

@@ -2,7 +2,7 @@
  * Tiny global event bus over window CustomEvents. Lets the terminal
  * and hotkeys trigger page-wide easter eggs without prop drilling.
  */
-export type BusEvent = 'drive' | 'matrix' | 'konami' | 'confetti';
+export type BusEvent = 'drive' | 'matrix' | 'konami' | 'confetti' | 'party' | 'particle-material';
 
 export function emit(event: BusEvent, detail?: unknown) {
   window.dispatchEvent(new CustomEvent(`jandro:${event}`, { detail }));

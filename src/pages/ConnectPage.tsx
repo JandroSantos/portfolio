@@ -60,14 +60,13 @@ export default function ConnectPage() {
           <div aria-hidden className="absolute bottom-0 h-[70%] w-[70%] rounded-full blur-[80px]" style={{ background: w.deep, opacity: 0.5 }} />
           <Magnet padding={220} strength={6} className="h-full">
             <motion.img
+              layoutId="world-figurine"
               src={social.image}
               alt={d.characters.social.alias}
               draggable={false}
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
               className="h-full w-auto select-none object-contain object-bottom"
               style={{ filter: `drop-shadow(0 40px 60px ${w.deep}88)` }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             />
           </Magnet>
         </div>
@@ -154,6 +153,44 @@ export default function ConnectPage() {
           ))}
         </div>
       </section>
+
+      {/* ---- Testimonials marquee ---- */}
+      <div className="overflow-hidden border-y py-5" style={{ borderColor: `${w.bg}20`, background: `${w.bg}08` }}>
+        <Marquee duration={42} className="mb-4">
+          {[
+            { quote: lang === 'es' ? 'Velocidad de ejecución brutal y visión técnica.' : 'Brutal execution speed and technical vision.', by: 'Compañero de proyecto' },
+            { quote: lang === 'es' ? 'Convierte ideas complejas en productos claros.' : 'Turns complex ideas into clear products.', by: 'Colaborador' },
+            { quote: lang === 'es' ? 'Bucea en los detalles que marcan la diferencia.' : 'Dives into the details that make the difference.', by: 'Mentor técnico' },
+            { quote: lang === 'es' ? 'El primero en estar disponible, el último en rendirse.' : 'First to be available, last to give up.', by: 'Equipo' },
+          ].map((t, i) => (
+            <div
+              key={i}
+              className="flex w-72 shrink-0 flex-col justify-between rounded-2xl border p-5"
+              style={{ borderColor: `${w.bg}30`, background: `${w.bg}10` }}
+            >
+              <p className="text-sm leading-relaxed text-bone">"{t.quote}"</p>
+              <p className="mt-3 font-mono text-[10px] uppercase tracking-widest" style={{ color: w.bg }}>— {t.by}</p>
+            </div>
+          ))}
+        </Marquee>
+        <Marquee duration={48} reverse>
+          {[
+            { quote: lang === 'es' ? 'El portfolio más currado que he visto.' : 'The most polished portfolio I have seen.', by: 'Reclutador' },
+            { quote: lang === 'es' ? 'Aporta soluciones, no excusas.' : 'Brings solutions, not excuses.', by: 'Líder técnico' },
+            { quote: lang === 'es' ? 'Raro encontrar alguien tan meticuloso.' : 'Rare to find someone this meticulous.', by: 'Colega senior' },
+            { quote: lang === 'es' ? 'Sus animaciones hacen que el producto respire.' : 'His animations make the product breathe.', by: 'Diseñador' },
+          ].map((t, i) => (
+            <div
+              key={i}
+              className="flex w-72 shrink-0 flex-col justify-between rounded-2xl border p-5"
+              style={{ borderColor: `${w.bg}30`, background: `${w.bg}10` }}
+            >
+              <p className="text-sm leading-relaxed text-bone">"{t.quote}"</p>
+              <p className="mt-3 font-mono text-[10px] uppercase tracking-widest" style={{ color: w.bg }}>— {t.by}</p>
+            </div>
+          ))}
+        </Marquee>
+      </div>
 
       {/* ---- CTA ---- */}
       <section className="mx-auto max-w-6xl px-5 pb-28 text-center sm:px-8">
