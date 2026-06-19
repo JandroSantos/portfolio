@@ -1,154 +1,282 @@
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { useRef } from 'react';
 import { CHARACTERS } from '@/data/characters';
 import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
-import FadeIn from '@/components/ui/FadeIn';
-import AnimatedNumber from '@/components/ui/AnimatedNumber';
-import DecodeText from '@/components/ui/DecodeText';
-import GrowthChart from '@/components/effects/GrowthChart';
 
 const exec = CHARACTERS[2];
 
-/** Career trajectory feeding the annual-report chart. */
-const GROWTH = [
-  { label: '2021', value: 18 },
-  { label: '2022', value: 34 },
-  { label: '2023', value: 52 },
-  { label: '2024', value: 71 },
-  { label: '2025', value: 88 },
-  { label: 'now', value: 100 },
-];
+/* ─── Gold horizontal rule ─────────────────────────────────────────── */
+function GoldRule({ delay = 0 }: { delay?: number }) {
+  return (
+    <motion.div
+      initial={{ scaleX: 0, opacity: 0 }}
+      whileInView={{ scaleX: 1, opacity: 1 }}
+      viewport={{ once: true }}
+      transition={{ delay, duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+      className="h-px w-full origin-left"
+      style={{ background: 'linear-gradient(90deg, #d2ab5b, #d2ab5b60, transparent)' }}
+    />
+  );
+}
 
-/**
- * The Executive — refined, premium. Navy + gold, animated stats and
- * an elegant vertical timeline. The "boardroom" world.
- */
+/* ─── Stat block ───────────────────────────────────────────────────── */
+function StatBlock({ value, label, delay }: { value: string; label: string; delay: number }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 40 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+      className="flex flex-1 flex-col items-center gap-3 px-4 py-10 text-center"
+    >
+      <span
+        className="font-display font-black leading-none text-bone"
+        style={{ fontSize: 'clamp(3.5rem, 9vw, 7rem)' }}
+      >
+        {value}
+      </span>
+      <div className="h-px w-12" style={{ background: '#d2ab5b' }} />
+      <p className="font-mono text-[10px] uppercase tracking-[0.35em]" style={{ color: '#d2ab5b80' }}>
+        {label}
+      </p>
+    </motion.div>
+  );
+}
+
+/* ─── Page ──────────────────────────────────────────────────────────── */
 export default function ExperiencePage() {
   const { d, lang } = useLanguage();
   const e = d.experience;
-  const w = exec.world; // bg navy, accent gold
-  const gold = w.accent;
+  const w = exec.world;
+  const gold = w.accent; // #d2ab5b
+
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: heroScroll } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const figurineY = useTransform(heroScroll, [0, 1], [0, -80]);
+  const textY = useTransform(heroScroll, [0, 1], [0, -40]);
+  const heroOpacity = useTransform(heroScroll, [0, 0.75, 1], [1, 1, 0]);
 
   return (
-    <PageShell
-      character={exec}
-      background={`radial-gradient(130% 80% at 50% -10%, ${w.deep}66 0%, #06080f 55%)`}
-    >
-      {/* ---- Hero ---- */}
-      <section className="mx-auto grid max-w-6xl items-center gap-8 px-5 pb-12 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-[1.1fr_0.9fr]">
-        <div>
-          <FadeIn>
-            <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: gold }}>
-              {e.eyebrow}
-            </span>
-          </FadeIn>
-          <h1 className="heading-kinetic mt-4 text-[clamp(3.2rem,14vw,11rem)] leading-[0.82] text-bone">
-            {e.title}
-          </h1>
-          {/* Gold rule */}
+    <PageShell character={exec} background="#06080f">
+
+      {/* ══ COVER ════════════════════════════════════════════════════ */}
+      <div
+        ref={heroRef}
+        className="relative flex min-h-[100svh] flex-col overflow-hidden"
+        style={{ background: '#06080f' }}
+      >
+        {/* Ghost REPORT word */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 flex items-center justify-end pr-8 select-none font-display font-black uppercase leading-none text-bone"
+          style={{ fontSize: 'clamp(6rem, 22vw, 18rem)', opacity: 0.03 }}
+        >
+          REPORT
+        </span>
+
+        {/* Main cover layout */}
+        <motion.div
+          style={{ opacity: heroOpacity }}
+          className="relative z-10 mx-auto flex flex-1 w-full max-w-7xl flex-col items-start justify-center gap-0 px-8 py-32 sm:px-16 lg:flex-row lg:items-stretch lg:gap-0 lg:py-0"
+        >
+          {/* LEFT — figurine */}
           <motion.div
-            initial={{ scaleX: 0, opacity: 0 }}
-            whileInView={{ scaleX: 1, opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-6 h-px w-40 origin-left"
-            style={{ background: `linear-gradient(90deg, ${gold}, transparent)` }}
-          />
-          <FadeIn delay={0.15} className="mt-6 max-w-xl">
-            <DecodeText
-              text={e.intro}
-              trigger={lang}
-              className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
-            />
-          </FadeIn>
-        </div>
-
-        {/* Figurine — layout-id matches the carousel for the "fly-in" transition */}
-        <div className="relative hidden h-[55vh] items-end justify-center lg:flex">
-          <div aria-hidden className="absolute bottom-0 h-[70%] w-[70%] rounded-full blur-[80px]" style={{ background: w.deep, opacity: 0.4 }} />
-          <motion.img
-            layoutId="world-figurine"
-            src={exec.image}
-            alt="The Executive"
-            draggable={false}
-            className="h-full w-auto select-none object-contain object-bottom"
-            style={{ filter: `drop-shadow(0 40px 60px ${w.deep}aa)` }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          />
-        </div>
-      </section>
-
-      {/* ---- Stats ---- */}
-      <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
-        <div className="grid grid-cols-3 divide-x rounded-2xl border" style={{ borderColor: `${gold}33`, ['--tw-divide-opacity' as string]: '1', background: `${w.bg}1a` }}>
-          {e.stats.map((s, i) => (
-            <FadeIn key={s.label} delay={i * 0.1} className="px-4 py-8 text-center sm:py-10" style={{ borderColor: `${gold}26` }}>
-              <AnimatedNumber
-                value={s.value}
-                className="font-display text-[clamp(2.5rem,8vw,5rem)] leading-none"
-              />
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.2em] text-bone-dim sm:text-xs">
-                {s.label}
-              </p>
-            </FadeIn>
-          ))}
-        </div>
-      </section>
-
-      {/* ---- Growth chart ---- */}
-      <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
-        <FadeIn>
-          <div
-            className="rounded-3xl border p-5 sm:p-8"
-            style={{ borderColor: `${gold}26`, background: `${w.bg}14` }}
+            style={{ y: figurineY }}
+            className="flex shrink-0 items-end justify-start lg:h-full lg:w-[40%] lg:items-end"
           >
-            <div className="mb-4 flex items-baseline justify-between">
-              <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: gold }}>
-                {lang === 'es' ? 'Trayectoria' : 'Trajectory'}
-              </span>
-              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone-dim">
-                {lang === 'es' ? 'crecimiento compuesto' : 'compounding growth'}
-              </span>
-            </div>
-            <GrowthChart color={gold} points={GROWTH} className="h-auto w-full" />
+            <motion.img
+              layoutId="world-figurine"
+              src={exec.image}
+              alt="The Executive"
+              draggable={false}
+              className="pointer-events-none h-[52svh] w-auto select-none object-contain object-bottom lg:h-[78svh]"
+              style={{ filter: `drop-shadow(0 0 80px ${w.deep}aa)` }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            />
+          </motion.div>
+
+          {/* RIGHT — heading + vertical text */}
+          <motion.div
+            style={{ y: textY }}
+            className="flex flex-1 flex-col justify-center gap-6 lg:justify-center lg:pl-16"
+          >
+            <p
+              className="font-mono text-[11px] uppercase tracking-[0.45em]"
+              style={{ color: `${gold}70` }}
+            >
+              {e.eyebrow}
+            </p>
+            <motion.h1
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.25, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="font-display font-black uppercase leading-[0.85] text-bone"
+              style={{ fontSize: 'clamp(4rem, 13vw, 10rem)' }}
+            >
+              {e.title}
+            </motion.h1>
+            <GoldRule delay={0.5} />
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7, duration: 0.9 }}
+              className="max-w-sm text-sm leading-relaxed text-bone/50"
+            >
+              {e.intro}
+            </motion.p>
+          </motion.div>
+
+          {/* Far right: vertical "EXPERIENCE" text */}
+          <div className="absolute right-6 top-1/2 -translate-y-1/2 hidden lg:block" aria-hidden>
+            <p
+              className="select-none font-display font-black uppercase text-bone/[0.04]"
+              style={{
+                writingMode: 'vertical-lr',
+                fontSize: 'clamp(2rem, 4vw, 3.5rem)',
+                letterSpacing: '0.15em',
+              }}
+            >
+              {lang === 'es' ? 'EXPERIENCIA' : 'EXPERIENCE'}
+            </p>
           </div>
-        </FadeIn>
+        </motion.div>
+
+        {/* Bottom gold rule */}
+        <div className="relative z-10 px-8 pb-8 sm:px-16">
+          <GoldRule delay={0.3} />
+        </div>
+      </div>
+
+      {/* ══ STATS ROW ═══════════════════════════════════════════════ */}
+      <section
+        className="border-y"
+        style={{ borderColor: `${gold}20`, background: `${w.bg}08` }}
+      >
+        <div className="mx-auto max-w-5xl">
+          <div className="flex flex-col divide-y sm:flex-row sm:divide-x sm:divide-y-0" style={{ ['--tw-divide-opacity' as string]: '0.12' }}>
+            {e.stats.map((s, i) => (
+              <StatBlock key={s.label} value={s.value} label={s.label} delay={i * 0.12} />
+            ))}
+          </div>
+        </div>
       </section>
 
-      {/* ---- Timeline ---- */}
-      <section className="mx-auto max-w-4xl px-5 pb-24 sm:px-8 sm:pb-32">
-        <ol className="relative ml-2 border-l" style={{ borderColor: `${gold}44` }}>
+      {/* ══ PULL QUOTE / TRACK RECORD SECTION ══════════════════════ */}
+      <section className="relative overflow-hidden py-28 sm:py-40">
+        {/* Ghost word */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-8 top-1/2 -translate-y-1/2 select-none font-display font-black uppercase leading-none text-bone/[0.025]"
+          style={{ fontSize: 'clamp(6rem, 20vw, 16rem)' }}
+        >
+          {lang === 'es' ? 'TRABAJO' : 'WORK'}
+        </span>
+
+        <div className="relative z-10 mx-auto max-w-4xl px-8 sm:px-16">
+          <p className="mb-8 font-mono text-[11px] uppercase tracking-[0.45em]" style={{ color: gold }}>
+            {lang === 'es' ? '— HISTORIAL' : '— TRACK RECORD'}
+          </p>
+          <GoldRule />
+          <motion.blockquote
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-12 font-display font-black italic leading-[1.05] text-bone"
+            style={{ fontSize: 'clamp(2rem, 5.5vw, 4.5rem)' }}
+          >
+            {lang === 'es'
+              ? '"De prototipo a producción. Liderazgo técnico que conecta la estrategia con el código."'
+              : '"From prototype to production. Technical leadership that connects strategy with code."'}
+          </motion.blockquote>
+          <div className="mt-10">
+            <GoldRule delay={0.2} />
+          </div>
+        </div>
+      </section>
+
+      {/* ══ TIMELINE ════════════════════════════════════════════════ */}
+      <section className="mx-auto max-w-5xl px-8 pb-32 sm:px-16 sm:pb-40">
+        <p className="mb-16 font-mono text-[11px] uppercase tracking-[0.45em]" style={{ color: gold }}>
+          {lang === 'es' ? '— Posiciones' : '— Positions'}
+        </p>
+
+        <ol className="relative space-y-0">
           {e.items.map((job, i) => (
-            <li key={job.role} className="relative pb-16 pl-8 last:pb-0 sm:pl-12">
-              {/* Gold node */}
-              <span
-                className="absolute -left-[7px] top-1.5 h-3.5 w-3.5 rounded-full ring-4"
-                style={{ background: gold, boxShadow: `0 0 16px ${gold}99`, ['--tw-ring-color' as string]: '#06080f' }}
-              />
-              <FadeIn delay={i * 0.08} y={28}>
-                <span className="font-mono text-[11px] uppercase tracking-[0.25em]" style={{ color: gold }}>
+            <li
+              key={job.role}
+              className="relative flex gap-8 pb-24 last:pb-0 sm:gap-16"
+            >
+              {/* Gold vertical line + node */}
+              <div className="relative flex flex-col items-center">
+                <div
+                  className="h-3 w-3 shrink-0 rounded-full ring-4"
+                  style={{
+                    background: gold,
+                    boxShadow: `0 0 20px ${gold}88`,
+                    ['--tw-ring-color' as string]: '#06080f',
+                    marginTop: '1.1rem',
+                  }}
+                />
+                {i < e.items.length - 1 && (
+                  <div
+                    className="mt-3 w-px flex-1"
+                    style={{ background: `linear-gradient(to bottom, ${gold}50, transparent)` }}
+                  />
+                )}
+              </div>
+
+              {/* Content */}
+              <motion.div
+                initial={{ opacity: 0, x: 40 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                className="flex-1 pb-4"
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.35em]" style={{ color: `${gold}80` }}>
                   {job.period}
-                </span>
-                <h3 className="mt-2 font-display text-[clamp(1.6rem,5vw,2.8rem)] uppercase leading-tight text-bone">
+                </p>
+                <h3
+                  className="mt-2 font-display font-black uppercase leading-[0.88] text-bone"
+                  style={{ fontSize: 'clamp(2rem, 6vw, 5rem)' }}
+                >
                   {job.role}
                 </h3>
-                <p className="mt-1 text-sm font-medium" style={{ color: w.panel }}>{job.org}</p>
-                <p className="mt-4 max-w-2xl text-balance text-base leading-relaxed text-bone-dim sm:text-lg">
+                <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: `${gold}60` }}>
+                  {job.org}
+                </p>
+
+                <div className="mt-6 h-px w-24" style={{ background: `${gold}30` }} />
+
+                <p className="mt-6 max-w-xl text-sm leading-relaxed text-bone/55">
                   {job.summary}
                 </p>
-                <ul className="mt-5 space-y-2">
+
+                <ul className="mt-6 space-y-3">
                   {job.highlights.map((h) => (
-                    <li key={h} className="flex items-start gap-3 text-sm text-bone-dim sm:text-base">
-                      <span className="mt-2 h-1 w-3 shrink-0" style={{ background: gold }} />
+                    <li
+                      key={h}
+                      className="flex items-start gap-4 font-mono text-[12px] text-bone/45"
+                    >
+                      <span
+                        className="mt-[0.4em] h-[1px] w-6 shrink-0"
+                        style={{ background: gold }}
+                      />
                       {h}
                     </li>
                   ))}
                 </ul>
-              </FadeIn>
+              </motion.div>
             </li>
           ))}
         </ol>
       </section>
+
     </PageShell>
   );
 }
