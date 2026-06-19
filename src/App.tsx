@@ -7,6 +7,7 @@ import { LanguageProvider } from './hooks/useLanguage';
 import { useSmoothScroll } from './hooks/useSmoothScroll';
 import { useEasterEgg } from './hooks/useEasterEgg';
 import Cursor from './components/ui/Cursor';
+import ScrollProgress from './components/ui/ScrollProgress';
 import Preloader from './components/Preloader';
 import LanguageSwitchOverlay from './components/ui/LanguageSwitchOverlay';
 import Terminal from './components/terminal/Terminal';
@@ -29,6 +30,7 @@ function Shell() {
       {!loaded && <Preloader onDone={() => setLoaded(true)} />}
 
       <Cursor />
+      <ScrollProgress />
       <LanguageSwitchOverlay />
       <RemoteCar />
       <MatrixRain />
