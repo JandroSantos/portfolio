@@ -21,6 +21,7 @@ import ConnectPage from './pages/ConnectPage';
 import ProjectsPage from './pages/ProjectsPage';
 import ExperiencePage from './pages/ExperiencePage';
 import StudiesPage from './pages/StudiesPage';
+import CvPage from './pages/CvPage';
 
 // Recruitment message visible in DevTools → Console
 const ASCII =
@@ -76,6 +77,7 @@ function Shell() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/experience" element={<ExperiencePage />} />
           <Route path="/studies" element={<StudiesPage />} />
+          <Route path="/cv" element={<CvPage />} />
           <Route path="*" element={<LandingPage />} />
         </Routes>
       </AnimatePresence>

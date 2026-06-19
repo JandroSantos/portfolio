@@ -87,6 +87,15 @@ export default function CommandPalette({ onOpenTerminal, onPartyMode }: CommandP
       keywords: ['start', 'hero', 'main'],
     },
     {
+      id: 'cv',
+      label: 'CV / Résumé',
+      description: 'Printable curriculum vitae',
+      icon: <span className="text-xs font-bold">CV</span>,
+      action: () => navigate('/cv'),
+      group: 'Navigate',
+      keywords: ['resume', 'curriculum', 'pdf', 'print', 'hire'],
+    },
+    {
       id: 'lang-toggle',
       label: lang === 'es' ? 'Switch to English' : 'Cambiar a Español',
       description: 'Toggle between ES / EN',
