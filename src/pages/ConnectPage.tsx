@@ -1,214 +1,247 @@
-import { motion } from 'framer-motion';
-import { ArrowUpRight } from 'lucide-react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { useRef } from 'react';
 import { CHARACTERS } from '@/data/characters';
 import { SOCIALS } from '@/data/content';
 import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
-import FadeIn from '@/components/ui/FadeIn';
-import Marquee from '@/components/ui/Marquee';
 import Magnet from '@/components/ui/Magnet';
-import MagneticButton from '@/components/ui/MagneticButton';
-import DecodeText from '@/components/ui/DecodeText';
-import NetworkConstellation from '@/components/effects/NetworkConstellation';
 
 const social = CHARACTERS[0];
 
-/**
- * The Connector — warm, editorial. Big friendly type, a greeting
- * marquee, the human facts and an open invitation to talk.
- */
 export default function ConnectPage() {
   const { d, lang } = useLanguage();
   const c = d.connect;
   const w = social.world;
 
+  const coverRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: coverScroll } = useScroll({
+    target: coverRef,
+    offset: ['start start', 'end start'],
+  });
+  const coverY = useTransform(coverScroll, [0, 1], [0, -120]);
+  const coverScale = useTransform(coverScroll, [0, 1], [1, 1.08]);
+  const coverOpacity = useTransform(coverScroll, [0.6, 1], [1, 0]);
+
   return (
-    <PageShell character={social}>
-      {/* ---- Hero ---- */}
-      <section className="relative mx-auto grid min-h-[100svh] max-w-6xl items-center gap-8 px-5 pt-28 sm:px-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="relative z-10">
-          <FadeIn>
-            <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: w.bg }}>
-              {c.eyebrow}
-            </span>
-          </FadeIn>
-          <h1 className="heading-kinetic mt-3 text-[clamp(3.5rem,15vw,11rem)] leading-[0.82] text-bone">
-            <span className="block">{c.title}</span>
-          </h1>
-          <FadeIn delay={0.15} className="mt-6 max-w-md">
-            <DecodeText
-              text={c.intro}
-              trigger={lang}
-              className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
-            />
-          </FadeIn>
+    <PageShell character={social} background="#0a0503">
 
-          {/* Now status */}
-          <FadeIn delay={0.25} className="mt-8 inline-flex items-center gap-3 rounded-full border px-4 py-2.5"
-            style={{ borderColor: `${w.bg}40`, background: `${w.bg}12` }}
+      {/* ══ COVER — magazine poster ══════════════════════════════════ */}
+      <div ref={coverRef} className="relative h-[100svh] overflow-hidden">
+        {/* Full-bleed coral wash */}
+        <motion.div
+          style={{ scale: coverScale, background: `linear-gradient(160deg, ${w.bg}22 0%, transparent 60%), #0a0503` }}
+          className="absolute inset-0"
+        />
+
+        {/* Giant rotated "HOLA." bleeds off screen */}
+        <motion.div
+          style={{ y: coverY, opacity: coverOpacity }}
+          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        >
+          <span
+            className="heading-kinetic select-none text-[clamp(8rem,32vw,28rem)] leading-none"
+            style={{ color: `${w.bg}18`, rotate: '-8deg', display: 'block', transform: 'rotate(-8deg)' }}
           >
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: w.bg }} />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ background: w.bg }} />
-            </span>
-            <span className="text-sm text-bone">{c.now}</span>
-          </FadeIn>
-        </div>
+            HOLA.
+          </span>
+        </motion.div>
 
-        {/* Figure */}
-        <div className="relative flex h-[50vh] items-end justify-center lg:h-[80vh]">
-          <div aria-hidden className="absolute bottom-0 h-[70%] w-[70%] rounded-full blur-[80px]" style={{ background: w.deep, opacity: 0.5 }} />
-          <Magnet padding={220} strength={6} className="h-full">
+        {/* Figurine — left-weighted */}
+        <motion.div
+          style={{ y: coverY, opacity: coverOpacity }}
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 lg:left-[15%] lg:translate-x-0"
+        >
+          <Magnet padding={160} strength={5} className="h-[70svh]">
             <motion.img
               layoutId="world-figurine"
               src={social.image}
-              alt={d.characters.social.alias}
+              alt="The Connector"
               draggable={false}
               className="h-full w-auto select-none object-contain object-bottom"
-              style={{ filter: `drop-shadow(0 40px 60px ${w.deep}88)` }}
+              style={{ filter: `drop-shadow(0 0 80px ${w.bg}44)` }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             />
           </Magnet>
-        </div>
-      </section>
+        </motion.div>
 
-      {/* Greeting marquee */}
-      <div className="border-y py-5" style={{ borderColor: `${w.bg}26`, background: `${w.bg}0a` }}>
-        <Marquee duration={24}>
-          {['HOLA', 'HELLO', 'CIAO', 'OLÁ', 'SALUT', 'こんにちは', '안녕'].map((g, i) => (
-            <span key={i} className="heading-kinetic text-[clamp(1.5rem,5vw,3rem)]" style={{ color: i % 2 ? w.bg : 'var(--color-bone)' }}>
-              {g} <span style={{ color: w.bg }}>·</span>
-            </span>
-          ))}
-        </Marquee>
-      </div>
-
-      {/* ---- Bio + facts ---- */}
-      <section className="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-32">
-        <div className="grid gap-14 lg:grid-cols-[1.3fr_1fr] lg:gap-20">
-          <div className="space-y-7 border-l-2 pl-6 sm:pl-8" style={{ borderColor: `${w.bg}55` }}>
-            {c.bio.map((para, i) => (
-              <FadeIn key={i} delay={i * 0.1} y={28}>
-                <p className="text-balance text-[clamp(1.3rem,3.2vw,2.1rem)] font-medium leading-[1.32] text-bone">
-                  {para}
-                </p>
-              </FadeIn>
-            ))}
-          </div>
-
-          {/* Facts */}
-          <div className="grid grid-cols-2 gap-3 self-start">
-            {c.facts.map((f, i) => (
-              <FadeIn
-                key={f.k}
-                delay={0.1 + i * 0.06}
-                y={20}
-                className="rounded-2xl border border-ink-line bg-ink-soft/50 p-5 backdrop-blur-sm"
-              >
-                <p className="font-mono text-[10px] uppercase tracking-[0.25em]" style={{ color: w.bg }}>{f.k}</p>
-                <p className="mt-2 text-base font-semibold text-bone">{f.v}</p>
-              </FadeIn>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---- Live network ---- */}
-      <section className="relative mx-auto max-w-6xl px-5 pb-24 sm:px-8 sm:pb-28">
-        <div
-          className="relative overflow-hidden rounded-3xl border"
-          style={{ borderColor: `${w.bg}33`, background: `${w.bg}0a` }}
+        {/* Editorial top-right copy */}
+        <motion.div
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.4, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute right-6 top-32 max-w-[260px] text-right sm:right-12 sm:top-40"
         >
-          <NetworkConstellation
-            color={w.bg}
-            labels={c.values.map((v) => v.label)}
-            className="h-[340px] w-full sm:h-[440px]"
-          />
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-bone-dim">
-              {lang === 'es' ? 'Mueve el cursor' : 'Move your cursor'}
-            </span>
-            <p className="mt-2 max-w-sm px-6 text-balance font-display text-2xl uppercase leading-tight text-bone sm:text-3xl">
-              {lang === 'es' ? 'Todo es una red' : "It's all a network"}
-            </p>
-          </div>
-        </div>
-      </section>
+          <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+            {c.eyebrow}
+          </p>
+          <h1 className="mt-2 font-display text-6xl uppercase leading-[0.85] text-bone sm:text-8xl">
+            {c.title}
+          </h1>
+          <p className="mt-4 text-sm leading-relaxed text-bone/60">
+            {c.intro}
+          </p>
+        </motion.div>
 
-      {/* ---- Values ---- */}
-      <section className="mx-auto max-w-6xl px-5 pb-24 sm:px-8 sm:pb-32">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {c.values.map((v, i) => (
-            <FadeIn
-              key={v.label}
-              delay={i * 0.08}
-              y={24}
-              className="group rounded-2xl border border-ink-line bg-ink-soft/40 p-6 transition-colors"
-            >
-              <span className="font-mono text-sm" style={{ color: w.bg }}>0{i + 1}</span>
-              <h3 className="mt-3 font-display text-2xl uppercase tracking-wide text-bone">{v.label}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-bone-dim">{v.note}</p>
-              <div className="mt-4 h-0.5 w-0 transition-all duration-500 group-hover:w-full" style={{ background: w.bg }} />
-            </FadeIn>
-          ))}
-        </div>
-      </section>
-
-      {/* ---- Testimonials marquee ---- */}
-      <div className="overflow-hidden border-y py-5" style={{ borderColor: `${w.bg}20`, background: `${w.bg}08` }}>
-        <Marquee duration={42} className="mb-4">
-          {[
-            { quote: lang === 'es' ? 'Velocidad de ejecución brutal y visión técnica.' : 'Brutal execution speed and technical vision.', by: 'Compañero de proyecto' },
-            { quote: lang === 'es' ? 'Convierte ideas complejas en productos claros.' : 'Turns complex ideas into clear products.', by: 'Colaborador' },
-            { quote: lang === 'es' ? 'Bucea en los detalles que marcan la diferencia.' : 'Dives into the details that make the difference.', by: 'Mentor técnico' },
-            { quote: lang === 'es' ? 'El primero en estar disponible, el último en rendirse.' : 'First to be available, last to give up.', by: 'Equipo' },
-          ].map((t, i) => (
-            <div
-              key={i}
-              className="flex w-72 shrink-0 flex-col justify-between rounded-2xl border p-5"
-              style={{ borderColor: `${w.bg}30`, background: `${w.bg}10` }}
-            >
-              <p className="text-sm leading-relaxed text-bone">"{t.quote}"</p>
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-widest" style={{ color: w.bg }}>— {t.by}</p>
-            </div>
-          ))}
-        </Marquee>
-        <Marquee duration={48} reverse>
-          {[
-            { quote: lang === 'es' ? 'El portfolio más currado que he visto.' : 'The most polished portfolio I have seen.', by: 'Reclutador' },
-            { quote: lang === 'es' ? 'Aporta soluciones, no excusas.' : 'Brings solutions, not excuses.', by: 'Líder técnico' },
-            { quote: lang === 'es' ? 'Raro encontrar alguien tan meticuloso.' : 'Rare to find someone this meticulous.', by: 'Colega senior' },
-            { quote: lang === 'es' ? 'Sus animaciones hacen que el producto respire.' : 'His animations make the product breathe.', by: 'Diseñador' },
-          ].map((t, i) => (
-            <div
-              key={i}
-              className="flex w-72 shrink-0 flex-col justify-between rounded-2xl border p-5"
-              style={{ borderColor: `${w.bg}30`, background: `${w.bg}10` }}
-            >
-              <p className="text-sm leading-relaxed text-bone">"{t.quote}"</p>
-              <p className="mt-3 font-mono text-[10px] uppercase tracking-widest" style={{ color: w.bg }}>— {t.by}</p>
-            </div>
-          ))}
-        </Marquee>
+        {/* Bottom strip: NOW status */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.8 }}
+          className="absolute bottom-0 left-0 right-0 flex items-center gap-4 border-t px-6 py-4 sm:px-12"
+          style={{ borderColor: `${w.bg}30`, background: `${w.bg}0c` }}
+        >
+          <span className="relative flex h-2 w-2 shrink-0">
+            <span className="absolute h-full w-full animate-ping rounded-full" style={{ background: w.bg, opacity: 0.6 }} />
+            <span className="relative h-2 w-2 rounded-full" style={{ background: w.bg }} />
+          </span>
+          <p className="font-mono text-[11px] leading-snug text-bone/70">{c.now}</p>
+        </motion.div>
       </div>
 
-      {/* ---- CTA ---- */}
-      <section className="mx-auto max-w-6xl px-5 pb-28 text-center sm:px-8">
-        <FadeIn>
-          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-bone-dim">{c.cta.lead}</p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <MagneticButton
-              href={SOCIALS[0].href}
-              className="flex items-center gap-2 rounded-full px-7 py-4 font-display text-xl uppercase"
-              style={{ background: w.bg, color: w.ink }}
-              cursorLabel="Email"
-            >
-              {c.cta.button}
-              <ArrowUpRight size={20} />
-            </MagneticButton>
+      {/* ══ PULL QUOTES — editorial spreads ═════════════════════════ */}
+      {c.bio.map((para, i) => (
+        <PullQuote key={i} text={para} index={i} color={w.bg} reverse={i % 2 === 1} />
+      ))}
+
+      {/* ══ FACTS — scattered stickers ═══════════════════════════════ */}
+      <section className="relative overflow-hidden py-24 sm:py-36" style={{ background: `${w.bg}08` }}>
+        <div className="mx-auto max-w-6xl px-6 sm:px-12">
+          <p className="mb-16 font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+            {lang === 'es' ? '— Datos' : '— Facts'}
+          </p>
+          <div className="flex flex-wrap gap-4">
+            {c.facts.map((f, i) => {
+              const rotations = [-3, 2, -1, 4];
+              return (
+                <motion.div
+                  key={f.k}
+                  initial={{ opacity: 0, y: 40, rotate: rotations[i] - 4 }}
+                  whileInView={{ opacity: 1, y: 0, rotate: rotations[i] }}
+                  viewport={{ once: true, margin: '-80px' }}
+                  transition={{ delay: i * 0.1, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={{ scale: 1.06, rotate: rotations[i] + 2, zIndex: 10 }}
+                  className="relative cursor-default rounded-xl border p-5 backdrop-blur-sm"
+                  style={{
+                    background: `${w.bg}15`,
+                    borderColor: `${w.bg}40`,
+                    minWidth: 140,
+                  }}
+                >
+                  <p className="font-mono text-[10px] uppercase tracking-[0.3em]" style={{ color: w.bg }}>{f.k}</p>
+                  <p className="mt-1 text-xl font-bold text-bone">{f.v}</p>
+                </motion.div>
+              );
+            })}
           </div>
-        </FadeIn>
+        </div>
+      </section>
+
+      {/* ══ VALUES — horizontal ticker cards ═════════════════════════ */}
+      <section className="py-24 sm:py-36">
+        <div className="mx-auto max-w-6xl px-6 sm:px-12">
+          <p className="mb-12 font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+            {lang === 'es' ? '— Cómo trabajo' : '— How I work'}
+          </p>
+          <div className="space-y-px">
+            {c.values.map((v, i) => (
+              <motion.div
+                key={v.label}
+                initial={{ opacity: 0, x: -40 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: '-60px' }}
+                transition={{ delay: i * 0.12, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="group flex items-center justify-between gap-8 border-t py-8 transition-colors"
+                style={{ borderColor: `${w.bg}25` }}
+              >
+                <div className="flex items-center gap-6">
+                  <span className="font-mono text-[11px] text-bone/30">0{i + 1}</span>
+                  <h3
+                    className="font-display text-[clamp(2rem,8vw,6rem)] uppercase leading-none text-bone transition-colors duration-300 group-hover:text-[color:var(--c)]"
+                    style={{ ['--c' as string]: w.bg }}
+                  >
+                    {v.label}
+                  </h3>
+                </div>
+                <p className="hidden max-w-xs text-sm leading-relaxed text-bone/50 sm:block">{v.note}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══ CONTACT — big CTA poster ══════════════════════════════════ */}
+      <section
+        className="relative overflow-hidden py-36 sm:py-48"
+        style={{ background: w.bg }}
+      >
+        <div className="mx-auto max-w-6xl px-6 sm:px-12">
+          <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.ink, opacity: 0.6 }}>
+            {c.cta.lead}
+          </p>
+          <motion.a
+            href={SOCIALS[0].href}
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-4 block font-display text-[clamp(2rem,11vw,9rem)] uppercase leading-[0.85] transition-opacity hover:opacity-70"
+            style={{ color: w.ink }}
+            data-cursor="hover"
+            data-cursor-label={c.cta.button}
+          >
+            {SOCIALS[0].handle}
+          </motion.a>
+          <div className="mt-16 flex flex-wrap gap-8">
+            {SOCIALS.slice(1).map((s) => (
+              <a
+                key={s.label}
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-sm uppercase tracking-wider underline underline-offset-4 transition-opacity hover:opacity-70"
+                style={{ color: w.ink, opacity: 0.7 }}
+              >
+                {s.label} ↗
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Decorative giant number */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-8 -top-8 font-display text-[clamp(12rem,40vw,36rem)] leading-none opacity-10 select-none"
+          style={{ color: w.ink }}
+        >
+          01
+        </span>
       </section>
     </PageShell>
+  );
+}
+
+function PullQuote({ text, index, color, reverse }: { text: string; index: number; color: string; reverse: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
+  const x = useTransform(scrollYProgress, [0, 1], reverse ? [60, -60] : [-60, 60]);
+  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0]);
+
+  return (
+    <div ref={ref} className="overflow-hidden py-20 sm:py-28">
+      <div className="mx-auto max-w-6xl px-6 sm:px-12">
+        <motion.p
+          style={{ x, opacity }}
+          className={`text-balance font-display text-[clamp(1.6rem,4.5vw,3.8rem)] uppercase leading-[1.1] text-bone ${reverse ? 'text-right' : 'text-left'}`}
+        >
+          "{text}"
+        </motion.p>
+        <motion.span
+          style={{ opacity, color }}
+          className={`mt-4 block font-mono text-[11px] uppercase tracking-[0.3em] ${reverse ? 'text-right' : 'text-left'}`}
+        >
+          — {index === 0 ? (text.includes('Tengo') ? 'Sobre mí' : 'About me') : (text.includes('Fui') ? 'Experiencia' : 'Experience')}
+        </motion.span>
+      </div>
+    </div>
   );
 }

@@ -1,6 +1,5 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef, useState, useCallback, useEffect } from 'react';
-import { on } from '@/lib/bus';
+import { useRef, useCallback } from 'react';
 import { ArrowDownRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useWorld } from '@/hooks/useWorld';
@@ -9,7 +8,6 @@ import { PROFILE } from '@/data/content';
 import Magnet from './ui/Magnet';
 import DecodeText from './ui/DecodeText';
 import LanguageToggle from './ui/LanguageToggle';
-import ParticleName from './effects/ParticleName';
 import { scrollToId } from '@/lib/scroll';
 import { emit } from '@/lib/bus';
 
@@ -21,15 +19,12 @@ const PATH_BY_NAV: Record<(typeof NAV_IDS)[number], string> = {
   studies: '/studies',
 };
 
-const MATERIALS = ['gold', 'code', 'filings', 'blueprint'] as const;
-
 export default function Hero() {
   const { character } = useWorld();
   const { d, lang } = useLanguage();
   const navigate = useNavigate();
   const logoClickCount = useRef(0);
   const logoClickTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [materialIdx, setMaterialIdx] = useState(0);
 
   const handleLogoClick = useCallback(() => {
     scrollToId('hero');
@@ -43,28 +38,15 @@ export default function Hero() {
     }
   }, []);
 
-  const cycleMaterial = useCallback(() => {
-    setMaterialIdx((i) => (i + 1) % MATERIALS.length);
-  }, []);
-
-  useEffect(() => {
-    return on('particle-material', (mat) => {
-      const idx = MATERIALS.indexOf(mat as typeof MATERIALS[number]);
-      if (idx !== -1) setMaterialIdx(idx);
-    });
-  }, []);
-
-  // Scroll-linked parallax — layers drift at different rates as the
-  // hero hands off to the carousel below.
   const heroRef = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({
     target: heroRef,
     offset: ['start start', 'end start'],
   });
-  const nameY = useTransform(scrollYProgress, [0, 1], [0, -150]);
-  const figureY = useTransform(scrollYProgress, [0, 1], [0, 90]);
-  const bgY = useTransform(scrollYProgress, [0, 1], [0, -60]);
-  const cueOpacity = useTransform(scrollYProgress, [0, 0.4], [1, 0]);
+  const figureY = useTransform(scrollYProgress, [0, 1], [0, 80]);
+  const nameY = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  const bgY = useTransform(scrollYProgress, [0, 1], [0, -40]);
+  const cueOpacity = useTransform(scrollYProgress, [0, 0.35], [1, 0]);
 
   return (
     <section
@@ -75,37 +57,28 @@ export default function Hero() {
         background: `radial-gradient(120% 80% at 50% 110%, ${character.world.deep}22 0%, transparent 60%), var(--color-ink)`,
       }}
     >
-      {/* ── BACKDROP / VIDEO SLOT ─────────────────────────────────────
-          Drop a full-bleed loop here for the cinematic version:
-          <video className="h-full w-full object-cover opacity-40"
-                 autoPlay muted loop playsInline src="/hero.mp4" />
-          The animated gradient below is the fallback. */}
-      <motion.div
-        aria-hidden
-        style={{ y: bgY }}
-        className="pointer-events-none absolute inset-0 z-0"
-      >
+      {/* Animated backdrop */}
+      <motion.div aria-hidden style={{ y: bgY }} className="pointer-events-none absolute inset-0 z-0">
         <motion.div
-          className="absolute left-1/2 top-1/3 h-[120vmax] w-[120vmax] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30"
+          className="absolute left-1/2 top-1/3 h-[120vmax] w-[120vmax] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-20"
           style={{
-            background: `conic-gradient(from 0deg, ${character.world.deep}00, ${character.world.bg}33, ${character.world.deep}00)`,
+            background: `conic-gradient(from 0deg, ${character.world.deep}00, ${character.world.bg}44, ${character.world.deep}00)`,
           }}
           animate={{ rotate: 360 }}
           transition={{ duration: 60, repeat: Infinity, ease: 'linear' }}
         />
       </motion.div>
+
       {/* Top bar */}
       <header className="relative z-30 flex items-center justify-between px-5 pt-6 sm:px-10 sm:pt-8">
         <button
           onClick={handleLogoClick}
           data-cursor="hover"
-          data-cursor-label="×5 🎉"
           className="font-mono text-xs font-semibold uppercase tracking-[0.25em] text-bone"
         >
           JS<span style={{ color: character.world.bg }}>.</span>
         </button>
 
-        {/* Desktop nav */}
         <nav className="hidden items-center gap-7 md:flex">
           {NAV_IDS.map((id, i) => (
             <motion.button
@@ -122,7 +95,6 @@ export default function Hero() {
           ))}
         </nav>
 
-        {/* Right cluster: status + language */}
         <div className="flex items-center gap-3">
           <motion.div
             initial={{ opacity: 0 }}
@@ -131,63 +103,63 @@ export default function Hero() {
             className="hidden items-center gap-2 rounded-full border border-ink-line px-3 py-1.5 sm:flex"
           >
             <span className="relative flex h-2 w-2">
-              <span
-                className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
-                style={{ background: character.world.bg }}
-              />
-              <span
-                className="relative inline-flex h-2 w-2 rounded-full"
-                style={{ background: character.world.bg }}
-              />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: character.world.bg }} />
+              <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: character.world.bg }} />
             </span>
-            <span className="font-mono text-[11px] uppercase tracking-widest text-bone-dim">
-              {d.meta.available}
-            </span>
+            <span className="font-mono text-[11px] uppercase tracking-widest text-bone-dim">{d.meta.available}</span>
           </motion.div>
           <LanguageToggle />
         </div>
       </header>
 
-      {/* Center: particle name + magnetic character */}
-      <div className="relative flex flex-1 items-stretch justify-center">
-        {/* Magnetic figure, rising from the bottom — the head reaches the name */}
+      {/* Name + figurine */}
+      <div className="relative flex flex-1 flex-col items-center justify-center">
+
+        {/* Name — massive display heading split into two rows */}
+        <motion.div
+          style={{ y: nameY }}
+          className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col items-center justify-start pt-6"
+          aria-hidden
+        >
+          <motion.span
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            className="heading-kinetic block text-center text-[clamp(5rem,19vw,16rem)] leading-[0.82] text-bone"
+          >
+            JANDRO
+          </motion.span>
+          <motion.span
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.32, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            className="heading-kinetic block text-center text-[clamp(5rem,19vw,16rem)] leading-[0.82]"
+            style={{ color: character.world.bg }}
+          >
+            SANTOS
+          </motion.span>
+        </motion.div>
+
+        {/* Figurine — rises from the bottom, overlaps the name */}
         <motion.div
           style={{ y: figureY }}
           className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center"
         >
-          <Magnet
-            padding={180}
-            strength={4}
-            className="pointer-events-auto h-[52vh] w-auto sm:h-[66vh]"
-          >
+          <Magnet padding={180} strength={4} className="pointer-events-auto h-[60vh] w-auto sm:h-[72vh]">
             <img
               src={character.image}
               alt={`${PROFILE.name} — ${d.characters[character.key].alias}`}
               draggable={false}
               className="h-full w-auto select-none object-contain object-bottom"
-              style={{ filter: `drop-shadow(0 30px 60px ${character.world.deep}66)` }}
+              style={{ filter: `drop-shadow(0 30px 80px ${character.world.deep}88)` }}
             />
           </Magnet>
         </motion.div>
 
-        {/* The name — click to cycle particle materials (gold→code→filings→blueprint) */}
-        <motion.div
-          style={{ y: nameY }}
-          onClick={cycleMaterial}
-          className="absolute inset-x-0 top-0 z-20 h-[64%] cursor-pointer"
-          aria-hidden
-          title="Click to change material"
-        >
-          <ParticleName
-            lines={['JANDRO', 'SANTOS']}
-            material={MATERIALS[materialIdx]}
-            className="h-full w-full"
-          />
-        </motion.div>
         <h1 className="sr-only">{PROFILE.name}</h1>
       </div>
 
-      {/* Bottom: role + scroll cue — fades as the hero parallaxes away */}
+      {/* Bottom bar */}
       <motion.div
         style={{ opacity: cueOpacity }}
         className="relative z-30 flex items-end justify-between gap-4 px-5 pb-7 sm:px-10 sm:pb-10"

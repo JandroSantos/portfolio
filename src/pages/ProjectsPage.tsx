@@ -1,167 +1,312 @@
-import { motion } from 'framer-motion';
-import { ArrowUpRight, Hammer } from 'lucide-react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { useRef } from 'react';
 import { CHARACTERS } from '@/data/characters';
 import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
-import FadeIn from '@/components/ui/FadeIn';
-import TiltCard from '@/components/ui/TiltCard';
-import DecodeText from '@/components/ui/DecodeText';
-import BlueprintSchematic from '@/components/effects/BlueprintSchematic';
 
 const builder = CHARACTERS[1];
 
-/**
- * The Builder — industrial / blueprint. A technical-drawing grid,
- * construction tape and project cards that read like spec sheets.
- */
+/* ─── Film-strip perforation row ───────────────────────────────────── */
+function FilmPerfs({ color }: { color: string }) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none flex w-full items-center gap-[5px] overflow-hidden px-2 py-[5px]"
+    >
+      {Array.from({ length: 80 }).map((_, i) => (
+        <span
+          key={i}
+          className="block h-[9px] w-[9px] shrink-0 rounded-[2px]"
+          style={{ background: `${color}20`, border: `1px solid ${color}18` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─── Single cinematic project panel ───────────────────────────────── */
+type ProjectItem = {
+  number: string;
+  name: string;
+  category: string;
+  year: string;
+  role: string;
+  description: string;
+  stack: string[];
+};
+
+function ProjectPanel({
+  item,
+  index,
+  accent,
+}: {
+  item: ProjectItem;
+  index: number;
+  accent: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ['start end', 'end start'],
+  });
+  const titleY = useTransform(scrollYProgress, [0, 1], [90, -90]);
+  const infoY = useTransform(scrollYProgress, [0, 1], [40, -40]);
+  const panelOpacity = useTransform(scrollYProgress, [0, 0.12, 0.88, 1], [0, 1, 1, 0]);
+
+  const isEven = index % 2 === 1;
+
+  return (
+    <div
+      ref={ref}
+      className="relative flex min-h-[100svh] flex-col overflow-hidden border-t"
+      style={{ borderColor: `${accent}18` }}
+    >
+      {/* Top film perforations */}
+      <FilmPerfs color={accent} />
+
+      {/* Frame counter */}
+      <div
+        className="absolute right-6 top-8 z-10 font-mono text-[11px] tracking-widest select-none"
+        style={{ color: `${accent}45` }}
+      >
+        {String(index + 1).padStart(4, '0')}
+      </div>
+
+      {/* Ghost BUILD/CREO word */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 flex items-center justify-center select-none font-display font-black uppercase leading-none"
+        style={{
+          fontSize: 'clamp(8rem, 28vw, 22rem)',
+          color: `${accent}05`,
+        }}
+      >
+        {isEven ? 'BUILD' : 'CREO'}
+      </span>
+
+      {/* Main content */}
+      <motion.div
+        style={{ opacity: panelOpacity }}
+        className={`relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center gap-12 px-6 py-24 sm:px-16 lg:flex-row lg:items-center lg:justify-between lg:gap-20 ${
+          isEven ? 'lg:flex-row-reverse' : ''
+        }`}
+      >
+        {/* Giant title column */}
+        <div className={`flex-1 ${isEven ? 'text-right' : 'text-left'}`}>
+          <motion.p
+            style={{ y: infoY }}
+            className="font-mono text-[11px] uppercase tracking-[0.4em]"
+            style={{ color: `${accent}55` }}
+          >
+            {item.category} — {item.year}
+          </motion.p>
+          <motion.h2
+            style={{ y: titleY }}
+            className="mt-2 font-display font-black uppercase leading-[0.82] text-bone"
+            style={{ fontSize: 'clamp(3.5rem, 13vw, 11rem)' }}
+          >
+            {item.name}
+          </motion.h2>
+          {/* Stack as film credits */}
+          <motion.p
+            style={{ y: infoY }}
+            className="mt-6 font-mono text-sm italic tracking-wider"
+            style={{ color: `${accent}70` }}
+          >
+            {'// ' + item.stack.map((s) => s.toUpperCase()).join(' · ')}
+          </motion.p>
+        </div>
+
+        {/* Info column */}
+        <motion.div
+          style={{ y: infoY }}
+          className={`w-full space-y-6 lg:max-w-sm ${isEven ? 'text-right lg:text-right' : 'text-left'}`}
+        >
+          <div>
+            <p
+              className="font-mono text-[10px] uppercase tracking-[0.35em]"
+              style={{ color: accent }}
+            >
+              {item.role}
+            </p>
+            <p className="mt-3 text-base leading-relaxed text-bone/55">
+              {item.description}
+            </p>
+          </div>
+          <div
+            className={`flex flex-wrap gap-2 ${isEven ? 'justify-end' : 'justify-start'}`}
+          >
+            {item.stack.map((s) => (
+              <span
+                key={s}
+                className="font-mono text-[10px] uppercase tracking-[0.3em]"
+                style={{
+                  color: accent,
+                  border: `1px solid ${accent}35`,
+                  padding: '3px 8px',
+                  borderRadius: 2,
+                }}
+              >
+                {s}
+              </span>
+            ))}
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* Bottom film perforations */}
+      <FilmPerfs color={accent} />
+    </div>
+  );
+}
+
+/* ─── Page ──────────────────────────────────────────────────────────── */
 export default function ProjectsPage() {
   const { d, lang } = useLanguage();
   const p = d.projects;
   const w = builder.world;
 
+  const heroRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: heroScroll } = useScroll({
+    target: heroRef,
+    offset: ['start start', 'end start'],
+  });
+  const heroY = useTransform(heroScroll, [0, 1], [0, -100]);
+  const heroOpacity = useTransform(heroScroll, [0, 0.7, 1], [1, 1, 0]);
+  const figurineY = useTransform(heroScroll, [0, 1], [0, -60]);
+
   return (
-    <PageShell
-      character={builder}
-      background={`radial-gradient(130% 80% at 50% -10%, ${w.deep}40 0%, #080604 55%)`}
-    >
-      {/* Blueprint grid overlay */}
+    <PageShell character={builder} background="#050403">
+
+      {/* ══ OPENING TITLE CARD ═══════════════════════════════════════ */}
       <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 z-0 opacity-[0.07]"
-        style={{
-          backgroundImage: `linear-gradient(${w.bg} 1px, transparent 1px), linear-gradient(90deg, ${w.bg} 1px, transparent 1px)`,
-          backgroundSize: '48px 48px',
-        }}
-      />
+        ref={heroRef}
+        className="relative flex min-h-[100svh] flex-col overflow-hidden"
+        style={{ background: '#050403' }}
+      >
+        {/* Grain texture */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.035]"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+            backgroundRepeat: 'repeat',
+            backgroundSize: '120px',
+          }}
+        />
 
-      {/* ---- Hero ---- */}
-      <section className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 px-5 pb-10 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-[1.1fr_0.9fr]">
-        <div>
-          <FadeIn className="flex items-center gap-3">
-            <Hammer size={18} style={{ color: w.bg }} />
-            <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: w.bg }}>
-              {p.eyebrow}
-            </span>
-          </FadeIn>
-          <h1 className="heading-kinetic mt-4 text-[clamp(3.5rem,16vw,12rem)] leading-[0.8] text-bone">
-            {p.title}
-          </h1>
-          <FadeIn delay={0.15} className="mt-6 max-w-xl">
-            <DecodeText
-              text={p.intro}
-              trigger={lang}
-              className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
-            />
-          </FadeIn>
-        </div>
+        {/* Top perfs */}
+        <FilmPerfs color={w.bg} />
 
-        {/* Self-drawing blueprint + builder figurine overlay */}
-        <FadeIn delay={0.2} className="relative hidden lg:block">
-          <BlueprintSchematic color={w.bg} className="h-auto w-full" />
-          <motion.img
-            layoutId="world-figurine"
-            src={builder.image}
-            alt="The Builder"
-            draggable={false}
-            className="pointer-events-none absolute -bottom-8 right-4 h-48 w-auto select-none object-contain object-bottom"
-            style={{ filter: `drop-shadow(0 20px 40px ${w.deep}99)` }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          />
-        </FadeIn>
-      </section>
-
-      <section className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8">
-
-        {/* Construction tape */}
-        <div className="mt-10 overflow-hidden rounded-sm">
-          <div
-            className="flex items-center gap-6 py-2"
-            style={{
-              background: `repeating-linear-gradient(45deg, ${w.bg}, ${w.bg} 16px, #1a1206 16px, #1a1206 32px)`,
-            }}
+        {/* Vertical "ALWAYS SHIPPING" */}
+        <motion.div
+          style={{ y: heroY, opacity: heroOpacity }}
+          className="absolute bottom-20 left-6 sm:left-10"
+        >
+          <p
+            className="select-none font-mono text-[10px] uppercase tracking-[0.65em] text-bone/25"
+            style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}
           >
-            {Array.from({ length: 8 }).map((_, i) => (
-              <span key={i} className="whitespace-nowrap font-mono text-[10px] font-bold uppercase tracking-[0.3em] text-black/70">
-                Always shipping ·
-              </span>
-            ))}
+            ALWAYS SHIPPING
+          </p>
+        </motion.div>
+
+        {/* Center: heading left, figurine right */}
+        <motion.div
+          style={{ y: heroY, opacity: heroOpacity }}
+          className="relative z-10 mx-auto flex flex-1 flex-col items-start justify-center px-10 sm:px-20 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div className="max-w-2xl">
+            <p
+              className="mb-4 font-mono text-[11px] uppercase tracking-[0.45em]"
+              style={{ color: w.bg }}
+            >
+              {p.eyebrow}
+            </p>
+            <motion.h1
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="font-display font-black uppercase leading-[0.82] text-bone"
+              style={{ fontSize: 'clamp(4.5rem, 18vw, 14rem)' }}
+            >
+              {p.title}
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.55, duration: 0.9 }}
+              className="mt-8 max-w-sm text-sm leading-relaxed text-bone/45"
+            >
+              {p.intro}
+            </motion.p>
           </div>
+
+          {/* Figurine */}
+          <motion.div
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            style={{ y: figurineY }}
+            className="pointer-events-none mt-12 shrink-0 lg:mt-0"
+          >
+            <motion.img
+              layoutId="world-figurine"
+              src={builder.image}
+              alt="The Builder"
+              draggable={false}
+              className="h-[48svh] w-auto select-none object-contain object-bottom lg:h-[66svh]"
+              style={{ filter: `drop-shadow(0 0 100px ${w.bg}55)` }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            />
+          </motion.div>
+        </motion.div>
+
+        {/* Ghost page number */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-4 -top-4 select-none font-display font-black leading-none"
+          style={{ fontSize: 'clamp(10rem, 35vw, 30rem)', color: `${w.bg}05` }}
+        >
+          02
+        </span>
+
+        {/* Bottom perfs */}
+        <FilmPerfs color={w.bg} />
+      </div>
+
+      {/* ══ CINEMATIC PROJECT PANELS ════════════════════════════════ */}
+      {p.items.map((item, i) => (
+        <ProjectPanel key={item.number} item={item} index={i} accent={w.bg} />
+      ))}
+
+      {/* ══ CLOSING FIN PANEL ══════════════════════════════════════ */}
+      <div
+        className="relative flex min-h-[55svh] flex-col overflow-hidden border-t"
+        style={{ background: '#030201', borderColor: `${w.bg}18` }}
+      >
+        <FilmPerfs color={w.bg} />
+        <div className="flex flex-1 items-center justify-center py-24 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <h2
+              className="font-display font-black italic leading-none text-bone"
+              style={{ fontSize: 'clamp(6rem, 24vw, 20rem)' }}
+            >
+              FIN.
+            </h2>
+            <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.5em] text-bone/28">
+              {lang === 'es' ? 'más proyectos en camino' : 'more coming soon'}
+            </p>
+          </motion.div>
         </div>
-      </section>
+        <FilmPerfs color={w.bg} />
+      </div>
 
-      {/* ---- Project spec cards ---- */}
-      <section className="relative z-10 mx-auto max-w-6xl space-y-8 px-5 pb-24 sm:px-8 sm:pb-32">
-        {p.items.map((proj, i) => (
-          <FadeIn key={proj.number} y={40} delay={i * 0.05}>
-            <TiltCard max={6} className="rounded-3xl">
-              <article
-                className="relative overflow-hidden rounded-3xl border p-6 sm:p-9"
-                style={{ borderColor: `${w.bg}40`, background: `color-mix(in srgb, ${w.bg} 9%, #0c0a07)` }}
-              >
-                {/* Corner index */}
-                <span
-                  className="pointer-events-none absolute -right-3 -top-8 font-display text-[clamp(6rem,18vw,14rem)] leading-none opacity-[0.12]"
-                  style={{ color: w.bg }}
-                >
-                  {proj.number}
-                </span>
-
-                <div className="relative grid gap-6 sm:grid-cols-[1.5fr_1fr]">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] uppercase tracking-[0.2em] text-bone-dim">
-                      <span style={{ color: w.bg }}>{proj.category}</span>
-                      <span>·</span>
-                      <span>{proj.year}</span>
-                      <span>·</span>
-                      <span>{proj.role}</span>
-                    </div>
-                    <h3 className="mt-2 font-display text-[clamp(1.6rem,5vw,3rem)] uppercase leading-tight text-bone">
-                      {proj.name}
-                    </h3>
-                    <p className="mt-4 max-w-md text-balance text-base leading-relaxed text-bone-dim sm:text-lg">
-                      {proj.description}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-start justify-between gap-6 sm:items-end">
-                    <a
-                      href="#"
-                      data-cursor="hover"
-                      data-cursor-label={p.view}
-                      className="group flex h-14 w-14 items-center justify-center rounded-full border transition-colors"
-                      style={{ borderColor: w.bg, color: w.bg }}
-                    >
-                      <ArrowUpRight size={24} className="transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                    </a>
-                    <div className="flex flex-wrap gap-2 sm:justify-end">
-                      {proj.stack.map((t) => (
-                        <span
-                          key={t}
-                          className="rounded-full px-3 py-1.5 font-mono text-xs uppercase tracking-wider"
-                          style={{ background: `${w.bg}1f`, color: w.panel }}
-                        >
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Spec footer line */}
-                <div className="mt-6 flex items-center gap-3 border-t pt-4 font-mono text-[10px] uppercase tracking-[0.25em] text-bone-dim" style={{ borderColor: `${w.bg}26` }}>
-                  <motion.span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ background: w.bg }}
-                    animate={{ opacity: [1, 0.3, 1] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-                  spec · {proj.number} / {String(p.items.length).padStart(2, '0')}
-                </div>
-              </article>
-            </TiltCard>
-          </FadeIn>
-        ))}
-      </section>
     </PageShell>
   );
 }
