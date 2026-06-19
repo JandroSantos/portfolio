@@ -3,9 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useWorld } from '@/hooks/useWorld';
 import { useLanguage } from '@/hooks/useLanguage';
+import { useNavigate } from 'react-router-dom';
 import { CHARACTERS, type CharacterKey } from '@/data/characters';
-import { PROFILE, SOCIALS, SECTION_FOR } from '@/data/content';
-import { scrollToId } from '@/lib/scroll';
+import { PROFILE, SOCIALS } from '@/data/content';
+import { PATH_FOR } from '@/data/routes';
+import { emit } from '@/lib/bus';
 
 interface Line {
   type: 'in' | 'out' | 'accent' | 'dim' | 'art';
@@ -26,6 +28,7 @@ interface TerminalProps {
 export default function Terminal({ open, onClose }: TerminalProps) {
   const { goTo } = useWorld();
   const { d, lang } = useLanguage();
+  const navigate = useNavigate();
   const t = d.terminal;
 
   const banner: Line[] = [...ART, { type: 'dim', text: t.bootHint }];
@@ -123,7 +126,7 @@ export default function Terminal({ open, onClose }: TerminalProps) {
         if (valid.includes(sec)) {
           print([{ type: 'dim', text: `→ ${t.navigating} /${sec}` }]);
           onClose();
-          setTimeout(() => scrollToId(sec), 200);
+          setTimeout(() => navigate(`/${sec}`), 200);
         } else {
           print([{ type: 'dim', text: `${t.sections}: ${valid.join(', ')}` }]);
         }
@@ -147,13 +150,24 @@ export default function Terminal({ open, onClose }: TerminalProps) {
             { type: 'out', text: t.sudoMsg },
             { type: 'out', text: `  ${SOCIALS[0].handle}` },
           ]);
-          setTimeout(() => scrollToId(SECTION_FOR.social), 400);
+          setTimeout(() => navigate(PATH_FOR.social), 400);
         } else {
           print([{ type: 'dim', text: t.sudoHint }]);
         }
         break;
       case 'coffee':
         print([{ type: 'out', text: t.coffee }]);
+        break;
+      case 'drive':
+      case 'car':
+        print([{ type: 'accent', text: t.drive }]);
+        onClose();
+        setTimeout(() => emit('drive'), 250);
+        break;
+      case 'matrix':
+        print([{ type: 'accent', text: t.matrixOn }]);
+        onClose();
+        setTimeout(() => emit('matrix'), 250);
         break;
       case 'clear':
         setLines([]);

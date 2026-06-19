@@ -18,6 +18,8 @@ interface WorldContextValue {
   /** Step forward / backward. */
   next: () => void;
   prev: () => void;
+  /** Lock the world to an index without a directional sweep (used by pages). */
+  lockTo: (i: number) => void;
   /** Direction of the last navigation (1 = next, -1 = prev). */
   direction: number;
 }
@@ -53,6 +55,10 @@ export function WorldProvider({ children }: { children: ReactNode }) {
     setActive((a) => a - 1);
   }, []);
 
+  const lockTo = useCallback((i: number) => {
+    setActive(((i % CHARACTERS.length) + CHARACTERS.length) % CHARACTERS.length);
+  }, []);
+
   // Repaint the world whenever the active character changes.
   useEffect(() => {
     const { world } = character;
@@ -66,7 +72,7 @@ export function WorldProvider({ children }: { children: ReactNode }) {
   }, [character]);
 
   return (
-    <WorldContext.Provider value={{ active, character, goTo, next, prev, direction }}>
+    <WorldContext.Provider value={{ active, character, goTo, next, prev, lockTo, direction }}>
       {children}
     </WorldContext.Provider>
   );

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { ArrowDownRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useWorld } from '@/hooks/useWorld';
 import { useLanguage } from '@/hooks/useLanguage';
 import { PROFILE } from '@/data/content';
@@ -9,10 +10,17 @@ import LanguageToggle from './ui/LanguageToggle';
 import { scrollToId } from '@/lib/scroll';
 
 const NAV_IDS = ['connect', 'projects', 'experience', 'studies'] as const;
+const PATH_BY_NAV: Record<(typeof NAV_IDS)[number], string> = {
+  connect: '/connect',
+  projects: '/projects',
+  experience: '/experience',
+  studies: '/studies',
+};
 
 export default function Hero() {
   const { character } = useWorld();
   const { d, lang } = useLanguage();
+  const navigate = useNavigate();
 
   return (
     <section
@@ -37,7 +45,7 @@ export default function Hero() {
           {NAV_IDS.map((id, i) => (
             <motion.button
               key={id}
-              onClick={() => scrollToId(id)}
+              onClick={() => navigate(PATH_BY_NAV[id])}
               data-cursor="hover"
               initial={{ opacity: 0, y: -16 }}
               animate={{ opacity: 1, y: 0 }}

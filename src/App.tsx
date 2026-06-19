@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TerminalSquare } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { WorldProvider } from './hooks/useWorld';
 import { LanguageProvider } from './hooks/useLanguage';
 import { useSmoothScroll } from './hooks/useSmoothScroll';
@@ -8,19 +9,20 @@ import { useEasterEgg } from './hooks/useEasterEgg';
 import Cursor from './components/ui/Cursor';
 import Preloader from './components/Preloader';
 import LanguageSwitchOverlay from './components/ui/LanguageSwitchOverlay';
-import Hero from './components/Hero';
-import CharacterCarousel from './components/carousel/CharacterCarousel';
-import ConnectSection from './components/sections/ConnectSection';
-import ProjectsSection from './components/sections/ProjectsSection';
-import ExperienceSection from './components/sections/ExperienceSection';
-import StudiesSection from './components/sections/StudiesSection';
-import Footer from './components/Footer';
 import Terminal from './components/terminal/Terminal';
+import RemoteCar from './components/effects/RemoteCar';
+import MatrixRain from './components/effects/MatrixRain';
+import LandingPage from './pages/LandingPage';
+import ConnectPage from './pages/ConnectPage';
+import ProjectsPage from './pages/ProjectsPage';
+import ExperiencePage from './pages/ExperiencePage';
+import StudiesPage from './pages/StudiesPage';
 
-function Page() {
+function Shell() {
   useSmoothScroll();
   const { open, setOpen, close } = useEasterEgg();
   const [loaded, setLoaded] = useState(false);
+  const location = useLocation();
 
   return (
     <>
@@ -28,16 +30,19 @@ function Page() {
 
       <Cursor />
       <LanguageSwitchOverlay />
+      <RemoteCar />
+      <MatrixRain />
 
-      <main>
-        <Hero />
-        <CharacterCarousel />
-        <ConnectSection />
-        <ProjectsSection />
-        <ExperienceSection />
-        <StudiesSection />
-        <Footer onOpenTerminal={() => setOpen(true)} />
-      </main>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/connect" element={<ConnectPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/experience" element={<ExperiencePage />} />
+          <Route path="/studies" element={<StudiesPage />} />
+          <Route path="*" element={<LandingPage />} />
+        </Routes>
+      </AnimatePresence>
 
       {/* Floating terminal trigger — keeps the easter egg reachable on touch */}
       <motion.button
@@ -63,7 +68,7 @@ export default function App() {
   return (
     <LanguageProvider>
       <WorldProvider>
-        <Page />
+        <Shell />
       </WorldProvider>
     </LanguageProvider>
   );

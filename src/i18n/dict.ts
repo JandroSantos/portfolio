@@ -14,33 +14,53 @@ export interface Dict {
     explore: string;
     loading: string;
     scroll: string;
+    enter: string;
+    back: string;
+    backHome: string;
   };
   nav: Record<'connect' | 'projects' | 'experience' | 'studies', string>;
-  hero: { role: string };
+  hero: { role: string; lead: string };
   characters: Record<CharacterKey, CharStrings>;
   carousel: { enter: string; go: string; brand: string; swipe: string; aria: string };
   connect: {
     eyebrow: string;
     title: string;
+    intro: string;
     bio: string[];
+    now: string;
+    facts: { k: string; v: string }[];
     values: { label: string; note: string }[];
+    cta: { lead: string; button: string };
   };
   projects: {
     eyebrow: string;
     title: string;
-    items: { number: string; name: string; category: string; description: string; stack: string[] }[];
+    intro: string;
     view: string;
+    items: {
+      number: string;
+      name: string;
+      category: string;
+      year: string;
+      role: string;
+      description: string;
+      stack: string[];
+    }[];
   };
   experience: {
     eyebrow: string;
     title: string;
+    intro: string;
+    stats: { value: string; label: string }[];
     items: { role: string; org: string; period: string; summary: string; highlights: string[] }[];
   };
   studies: {
     eyebrow: string;
     title: string;
+    intro: string;
     items: { title: string; org: string; period: string; note: string }[];
     skills: { label: string; items: string[] }[];
+    learning: string[];
   };
   footer: {
     talkEyebrow: string;
@@ -68,6 +88,15 @@ export interface Dict {
     sudoMsg: string;
     sudoHint: string;
     coffee: string;
+    drive: string;
+    matrixOn: string;
+  };
+  eggs: {
+    carHint: string;
+    carHud: string;
+    carExit: string;
+    found: string;
+    konamiToast: string;
   };
   switchLines: string[];
 }
@@ -79,6 +108,9 @@ export const DICT: Record<'es' | 'en', Dict> = {
       explore: 'Explora',
       loading: 'Cargando experiencia',
       scroll: 'Scroll',
+      enter: 'Entrar',
+      back: 'Volver',
+      backHome: 'Inicio',
     },
     nav: {
       connect: 'Conecta',
@@ -86,7 +118,10 @@ export const DICT: Record<'es' | 'en', Dict> = {
       experience: 'Experiencia',
       studies: 'Estudios',
     },
-    hero: { role: 'Full-Stack Developer & AI Engineer' },
+    hero: {
+      role: 'Full-Stack Developer & AI Engineer',
+      lead: 'Cuatro personajes, cuatro mundos, un developer. Elige uno y entra.',
+    },
     characters: {
       social: {
         alias: 'El Conector',
@@ -117,25 +152,37 @@ export const DICT: Record<'es' | 'en', Dict> = {
     connect: {
       eyebrow: '01 — Quién soy',
       title: 'Conecta',
+      intro: 'El lado humano del código. Aquí va quién soy cuando cierro el portátil… y cuando lo abro.',
       bio: [
         'Tengo 21 años y llevo el desarrollo en la sangre desde que entendí que una pantalla en blanco es la mejor invitación que existe.',
         'Fui responsable del departamento de IA en mi empresa. Vivo en el frontend pero me muevo con soltura por el backend, MCP, APIs y todo lo que conecte una idea con algo que funciona.',
+      ],
+      now: 'Construyendo agentes de IA, puliendo interfaces y buscando el próximo reto que merezca la pena.',
+      facts: [
+        { k: 'Base', v: 'España · remoto' },
+        { k: 'Edad', v: '21 años' },
+        { k: 'Idiomas', v: 'Español · Inglés B2' },
+        { k: 'Café', v: 'Combustible principal' },
       ],
       values: [
         { label: 'Comunicación', note: 'Explico lo técnico sin que duela.' },
         { label: 'Curiosidad', note: 'Si no lo sé, lo sabré mañana.' },
         { label: 'Criterio', note: 'Sé cuándo una idea merece código.' },
       ],
+      cta: { lead: '¿Tienes algo entre manos?', button: 'Escríbeme' },
     },
     projects: {
       eyebrow: '02 — Lo que construyo',
       title: 'Proyectos',
+      intro: 'Cosas que pasaron de una idea a algo que se ejecuta. Cada una con su porqué técnico.',
       view: 'Ver',
       items: [
         {
           number: '01',
           name: 'Servidor MCP a Medida',
           category: 'IA · Backend',
+          year: '2025',
+          role: 'Arquitectura & desarrollo',
           description:
             'Un servidor Model Context Protocol que conecta herramientas internas con agentes de IA, exponiendo acciones seguras y tipadas.',
           stack: ['Python', 'MCP', 'APIs'],
@@ -144,6 +191,8 @@ export const DICT: Record<'es' | 'en', Dict> = {
           number: '02',
           name: 'Panel de Agentes IA',
           category: 'Frontend · IA',
+          year: '2025',
+          role: 'Frontend lead',
           description:
             'Interfaz en tiempo real para orquestar agentes: streaming de respuestas, control de herramientas y trazas de ejecución.',
           stack: ['React', 'TypeScript', 'Tailwind'],
@@ -152,6 +201,8 @@ export const DICT: Record<'es' | 'en', Dict> = {
           number: '03',
           name: 'Experiencia Web Interactiva',
           category: 'Frontend · Motion',
+          year: '2024',
+          role: 'Diseño & desarrollo',
           description:
             'Una pieza de portfolio con animación dirigida por scroll, física magnética y un sistema de diseño propio.',
           stack: ['Svelte', 'GSAP', 'CSS'],
@@ -161,6 +212,12 @@ export const DICT: Record<'es' | 'en', Dict> = {
     experience: {
       eyebrow: '03 — Mi trayectoria',
       title: 'Experiencia',
+      intro: 'De prototipo a producción. Liderazgo técnico, IA y la profesionalidad que respalda un CV.',
+      stats: [
+        { value: '2+', label: 'Años construyendo' },
+        { value: '10+', label: 'Proyectos enviados' },
+        { value: '1', label: 'Departamento liderado' },
+      ],
       items: [
         {
           role: 'Responsable de Departamento de IA',
@@ -191,6 +248,7 @@ export const DICT: Record<'es' | 'en', Dict> = {
     studies: {
       eyebrow: '04 — Cómo aprendí',
       title: 'Estudios',
+      intro: 'La base y la curiosidad. Lo que estudié y lo que sigo aprendiendo cada día.',
       items: [
         {
           title: 'Grado Superior en Desarrollo de Aplicaciones Web (DAW)',
@@ -217,6 +275,7 @@ export const DICT: Record<'es' | 'en', Dict> = {
         { label: 'IA', items: ['MCP', 'Prompting', 'LLMs', 'Agentes'] },
         { label: 'Idiomas', items: ['Español', 'Inglés B2'] },
       ],
+      learning: ['Rust', 'Arquitectura de agentes', 'Diseño de sistemas', 'WebGPU'],
     },
     footer: {
       talkEyebrow: '¿Hablamos?',
@@ -235,8 +294,10 @@ export const DICT: Record<'es' | 'en', Dict> = {
         '  studies       formación',
         '  skills        stack técnico',
         '  contact       cómo encontrarme',
-        '  goto <sec>    ir a una sección (connect/projects/experience/studies)',
+        '  goto <sec>    ir a una página (connect/projects/experience/studies)',
         '  theme <id>    cambiar de mundo (social/builder/exec/nerd)',
+        '  drive         🏎️  saca el coche teledirigido',
+        '  matrix        entra en la madriguera',
         '  sudo hire-me  ;)',
         '  clear         limpiar  ·  exit  cerrar',
       ],
@@ -256,6 +317,15 @@ export const DICT: Record<'es' | 'en', Dict> = {
       sudoMsg: 'Excelente decisión. Hablemos:',
       sudoHint: 'sudo: prueba con "sudo hire-me"',
       coffee: '☕ Combustible aceptado. +10 a la productividad.',
+      drive: '🏎️  Coche desplegado. Conduce con WASD o las flechas. ESC para guardarlo.',
+      matrixOn: '🟢 Sígueme al conejo blanco… (pulsa cualquier tecla para salir)',
+    },
+    eggs: {
+      carHint: 'WASD / flechas para conducir · ESPACIO freno · ESC salir',
+      carHud: 'MODO CONDUCCIÓN',
+      carExit: 'Salir',
+      found: 'Easter egg encontrado',
+      konamiToast: '↑↑↓↓←→←→ B A — modo dios activado 🕹️',
     },
     switchLines: [
       'Switching to English… mind the accent 🇬🇧',
@@ -270,6 +340,9 @@ export const DICT: Record<'es' | 'en', Dict> = {
       explore: 'Explore',
       loading: 'Loading experience',
       scroll: 'Scroll',
+      enter: 'Enter',
+      back: 'Back',
+      backHome: 'Home',
     },
     nav: {
       connect: 'Connect',
@@ -277,7 +350,10 @@ export const DICT: Record<'es' | 'en', Dict> = {
       experience: 'Experience',
       studies: 'Studies',
     },
-    hero: { role: 'Full-Stack Developer & AI Engineer' },
+    hero: {
+      role: 'Full-Stack Developer & AI Engineer',
+      lead: 'Four characters, four worlds, one developer. Pick one and step in.',
+    },
     characters: {
       social: {
         alias: 'The Connector',
@@ -308,25 +384,37 @@ export const DICT: Record<'es' | 'en', Dict> = {
     connect: {
       eyebrow: '01 — Who I am',
       title: 'Connect',
+      intro: 'The human side of the code. Who I am when I close the laptop… and when I open it.',
       bio: [
         "I'm 21 and I've had development in my veins since I realised a blank screen is the best invitation there is.",
         'I led the AI department at my company. I live in the frontend but move comfortably through the backend, MCP, APIs and anything that turns an idea into something that works.',
+      ],
+      now: 'Building AI agents, polishing interfaces and hunting for the next challenge worth the effort.',
+      facts: [
+        { k: 'Based', v: 'Spain · remote' },
+        { k: 'Age', v: '21 years' },
+        { k: 'Languages', v: 'Spanish · English B2' },
+        { k: 'Coffee', v: 'Primary fuel' },
       ],
       values: [
         { label: 'Communication', note: 'I explain the technical without the pain.' },
         { label: 'Curiosity', note: "If I don't know it, I will by tomorrow." },
         { label: 'Judgement', note: 'I know when an idea deserves code.' },
       ],
+      cta: { lead: 'Got something brewing?', button: 'Drop me a line' },
     },
     projects: {
       eyebrow: '02 — What I build',
       title: 'Projects',
+      intro: 'Things that went from an idea to something that runs. Each with its technical why.',
       view: 'View',
       items: [
         {
           number: '01',
           name: 'Custom MCP Server',
           category: 'AI · Backend',
+          year: '2025',
+          role: 'Architecture & build',
           description:
             'A Model Context Protocol server connecting internal tools with AI agents, exposing safe, typed actions.',
           stack: ['Python', 'MCP', 'APIs'],
@@ -335,6 +423,8 @@ export const DICT: Record<'es' | 'en', Dict> = {
           number: '02',
           name: 'AI Agents Dashboard',
           category: 'Frontend · AI',
+          year: '2025',
+          role: 'Frontend lead',
           description:
             'A real-time interface to orchestrate agents: response streaming, tool control and execution traces.',
           stack: ['React', 'TypeScript', 'Tailwind'],
@@ -343,6 +433,8 @@ export const DICT: Record<'es' | 'en', Dict> = {
           number: '03',
           name: 'Interactive Web Experience',
           category: 'Frontend · Motion',
+          year: '2024',
+          role: 'Design & build',
           description:
             'A portfolio piece with scroll-driven animation, magnetic physics and a bespoke design system.',
           stack: ['Svelte', 'GSAP', 'CSS'],
@@ -352,6 +444,12 @@ export const DICT: Record<'es' | 'en', Dict> = {
     experience: {
       eyebrow: '03 — My track record',
       title: 'Experience',
+      intro: 'From prototype to production. Technical leadership, AI and the professionalism a CV is built on.',
+      stats: [
+        { value: '2+', label: 'Years building' },
+        { value: '10+', label: 'Projects shipped' },
+        { value: '1', label: 'Department led' },
+      ],
       items: [
         {
           role: 'Head of AI Department',
@@ -382,6 +480,7 @@ export const DICT: Record<'es' | 'en', Dict> = {
     studies: {
       eyebrow: '04 — How I learned',
       title: 'Studies',
+      intro: 'The foundation and the curiosity. What I studied and what I keep learning every day.',
       items: [
         {
           title: 'Higher Diploma in Web Application Development (DAW)',
@@ -408,6 +507,7 @@ export const DICT: Record<'es' | 'en', Dict> = {
         { label: 'AI', items: ['MCP', 'Prompting', 'LLMs', 'Agents'] },
         { label: 'Languages', items: ['Spanish', 'English B2'] },
       ],
+      learning: ['Rust', 'Agent architecture', 'Systems design', 'WebGPU'],
     },
     footer: {
       talkEyebrow: "Let's talk?",
@@ -426,8 +526,10 @@ export const DICT: Record<'es' | 'en', Dict> = {
         '  studies       education',
         '  skills        tech stack',
         '  contact       how to reach me',
-        '  goto <sec>    jump to a section (connect/projects/experience/studies)',
+        '  goto <sec>    jump to a page (connect/projects/experience/studies)',
         '  theme <id>    switch world (social/builder/exec/nerd)',
+        '  drive         🏎️  bring out the RC car',
+        '  matrix        enter the rabbit hole',
         '  sudo hire-me  ;)',
         '  clear         clear  ·  exit  close',
       ],
@@ -444,9 +546,18 @@ export const DICT: Record<'es' | 'en', Dict> = {
       sections: 'sections',
       themes: 'themes',
       sudoOk: '[sudo] access granted ✔',
-      sudoMsg: 'Excellent decision. Let’s talk:',
+      sudoMsg: 'Excellent decision. Let us talk:',
       sudoHint: 'sudo: try "sudo hire-me"',
       coffee: '☕ Fuel accepted. +10 to productivity.',
+      drive: '🏎️  Car deployed. Drive with WASD or arrows. ESC to put it away.',
+      matrixOn: '🟢 Follow the white rabbit… (press any key to exit)',
+    },
+    eggs: {
+      carHint: 'WASD / arrows to drive · SPACE brake · ESC exit',
+      carHud: 'DRIVE MODE',
+      carExit: 'Exit',
+      found: 'Easter egg found',
+      konamiToast: '↑↑↓↓←→←→ B A — god mode on 🕹️',
     },
     switchLines: [
       'Cambiando a español… dale 🇪🇸',
