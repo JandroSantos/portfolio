@@ -5,8 +5,19 @@ import PageShell from '@/components/layout/PageShell';
 import FadeIn from '@/components/ui/FadeIn';
 import AnimatedNumber from '@/components/ui/AnimatedNumber';
 import DecodeText from '@/components/ui/DecodeText';
+import GrowthChart from '@/components/effects/GrowthChart';
 
 const exec = CHARACTERS[2];
+
+/** Career trajectory feeding the annual-report chart. */
+const GROWTH = [
+  { label: '2021', value: 18 },
+  { label: '2022', value: 34 },
+  { label: '2023', value: 52 },
+  { label: '2024', value: 71 },
+  { label: '2025', value: 88 },
+  { label: 'now', value: 100 },
+];
 
 /**
  * The Executive — refined, premium. Navy + gold, animated stats and
@@ -66,6 +77,26 @@ export default function ExperiencePage() {
             </FadeIn>
           ))}
         </div>
+      </section>
+
+      {/* ---- Growth chart ---- */}
+      <section className="mx-auto max-w-6xl px-5 pb-20 sm:px-8">
+        <FadeIn>
+          <div
+            className="rounded-3xl border p-5 sm:p-8"
+            style={{ borderColor: `${gold}26`, background: `${w.bg}14` }}
+          >
+            <div className="mb-4 flex items-baseline justify-between">
+              <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: gold }}>
+                {lang === 'es' ? 'Trayectoria' : 'Trajectory'}
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone-dim">
+                {lang === 'es' ? 'crecimiento compuesto' : 'compounding growth'}
+              </span>
+            </div>
+            <GrowthChart color={gold} points={GROWTH} className="h-auto w-full" />
+          </div>
+        </FadeIn>
       </section>
 
       {/* ---- Timeline ---- */}

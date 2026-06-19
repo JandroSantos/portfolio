@@ -6,6 +6,7 @@ import PageShell from '@/components/layout/PageShell';
 import FadeIn from '@/components/ui/FadeIn';
 import TiltCard from '@/components/ui/TiltCard';
 import DecodeText from '@/components/ui/DecodeText';
+import BlueprintSchematic from '@/components/effects/BlueprintSchematic';
 
 const builder = CHARACTERS[1];
 
@@ -34,23 +35,33 @@ export default function ProjectsPage() {
       />
 
       {/* ---- Hero ---- */}
-      <section className="relative z-10 mx-auto max-w-6xl px-5 pb-10 pt-32 sm:px-8 sm:pt-40">
-        <FadeIn className="flex items-center gap-3">
-          <Hammer size={18} style={{ color: w.bg }} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: w.bg }}>
-            {p.eyebrow}
-          </span>
+      <section className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 px-5 pb-10 pt-32 sm:px-8 sm:pt-40 lg:grid-cols-[1.1fr_0.9fr]">
+        <div>
+          <FadeIn className="flex items-center gap-3">
+            <Hammer size={18} style={{ color: w.bg }} />
+            <span className="font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: w.bg }}>
+              {p.eyebrow}
+            </span>
+          </FadeIn>
+          <h1 className="heading-kinetic mt-4 text-[clamp(3.5rem,16vw,12rem)] leading-[0.8] text-bone">
+            {p.title}
+          </h1>
+          <FadeIn delay={0.15} className="mt-6 max-w-xl">
+            <DecodeText
+              text={p.intro}
+              trigger={lang}
+              className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
+            />
+          </FadeIn>
+        </div>
+
+        {/* Self-drawing blueprint */}
+        <FadeIn delay={0.2} className="hidden lg:block">
+          <BlueprintSchematic color={w.bg} className="h-auto w-full" />
         </FadeIn>
-        <h1 className="heading-kinetic mt-4 text-[clamp(3.5rem,16vw,12rem)] leading-[0.8] text-bone">
-          {p.title}
-        </h1>
-        <FadeIn delay={0.15} className="mt-6 max-w-xl">
-          <DecodeText
-            text={p.intro}
-            trigger={lang}
-            className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
-          />
-        </FadeIn>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8">
 
         {/* Construction tape */}
         <div className="mt-10 overflow-hidden rounded-sm">

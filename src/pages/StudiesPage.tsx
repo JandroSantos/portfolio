@@ -5,6 +5,8 @@ import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
 import FadeIn from '@/components/ui/FadeIn';
 import DecodeText from '@/components/ui/DecodeText';
+import CodeWindow from '@/components/effects/CodeWindow';
+import ContributionGraph from '@/components/effects/ContributionGraph';
 
 const nerd = CHARACTERS[3];
 
@@ -37,6 +39,24 @@ export default function StudiesPage() {
             trigger={lang}
             className="text-balance text-lg leading-relaxed text-bone-dim sm:text-xl"
           />
+        </FadeIn>
+      </section>
+
+      {/* ---- Self-typing editor + contribution heatmap ---- */}
+      <section className="mx-auto grid max-w-6xl gap-8 px-5 pb-16 sm:px-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
+        <FadeIn>
+          <CodeWindow color={w.bg} />
+        </FadeIn>
+        <FadeIn delay={0.12} className="flex flex-col justify-center gap-8">
+          <ContributionGraph
+            color={w.bg}
+            label={lang === 'es' ? 'actividad' : 'activity'}
+          />
+          <p className="text-balance text-lg leading-relaxed text-bone-dim">
+            {lang === 'es'
+              ? 'Cada día una línea más. El código es el cuaderno donde practico.'
+              : 'One more line every day. Code is the notebook where I practice.'}
+          </p>
         </FadeIn>
       </section>
 

@@ -9,6 +9,7 @@ import Marquee from '@/components/ui/Marquee';
 import Magnet from '@/components/ui/Magnet';
 import MagneticButton from '@/components/ui/MagneticButton';
 import DecodeText from '@/components/ui/DecodeText';
+import NetworkConstellation from '@/components/effects/NetworkConstellation';
 
 const social = CHARACTERS[0];
 
@@ -109,6 +110,28 @@ export default function ConnectPage() {
                 <p className="mt-2 text-base font-semibold text-bone">{f.v}</p>
               </FadeIn>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---- Live network ---- */}
+      <section className="relative mx-auto max-w-6xl px-5 pb-24 sm:px-8 sm:pb-28">
+        <div
+          className="relative overflow-hidden rounded-3xl border"
+          style={{ borderColor: `${w.bg}33`, background: `${w.bg}0a` }}
+        >
+          <NetworkConstellation
+            color={w.bg}
+            labels={c.values.map((v) => v.label)}
+            className="h-[340px] w-full sm:h-[440px]"
+          />
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+            <span className="font-mono text-[11px] uppercase tracking-[0.3em] text-bone-dim">
+              {lang === 'es' ? 'Mueve el cursor' : 'Move your cursor'}
+            </span>
+            <p className="mt-2 max-w-sm px-6 text-balance font-display text-2xl uppercase leading-tight text-bone sm:text-3xl">
+              {lang === 'es' ? 'Todo es una red' : "It's all a network"}
+            </p>
           </div>
         </div>
       </section>
