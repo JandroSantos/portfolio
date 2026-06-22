@@ -94,24 +94,21 @@ function ProjectPanel({
         {/* Giant title column */}
         <div className={`flex-1 ${isEven ? 'text-right' : 'text-left'}`}>
           <motion.p
-            style={{ y: infoY }}
             className="font-mono text-[11px] uppercase tracking-[0.4em]"
-            style={{ color: `${accent}55` }}
+            style={{ y: infoY, color: `${accent}55` }}
           >
             {item.category} — {item.year}
           </motion.p>
           <motion.h2
-            style={{ y: titleY }}
             className="mt-2 font-display font-black uppercase leading-[0.82] text-bone"
-            style={{ fontSize: 'clamp(3.5rem, 13vw, 11rem)' }}
+            style={{ y: titleY, fontSize: 'clamp(3.5rem, 13vw, 11rem)' }}
           >
             {item.name}
           </motion.h2>
           {/* Stack as film credits */}
           <motion.p
-            style={{ y: infoY }}
             className="mt-6 font-mono text-sm italic tracking-wider"
-            style={{ color: `${accent}70` }}
+            style={{ y: infoY, color: `${accent}70` }}
           >
             {'// ' + item.stack.map((s) => s.toUpperCase()).join(' · ')}
           </motion.p>
