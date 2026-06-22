@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
+import type React from 'react';
 
 interface ContributionGraphProps {
   color: string;
@@ -7,6 +8,7 @@ interface ContributionGraphProps {
   weeks?: number;
   label?: string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -19,6 +21,7 @@ export default function ContributionGraph({
   weeks = 26,
   label = 'commits',
   className,
+  style,
 }: ContributionGraphProps) {
   const cells = useMemo(() => {
     // Seeded pseudo-random so it's stable across renders.
@@ -39,7 +42,7 @@ export default function ContributionGraph({
     lvl === 0 ? 'rgba(255,255,255,0.05)' : hexA(color, 0.25 + lvl * 0.18);
 
   return (
-    <div className={className}>
+    <div className={className} style={style}>
       <div className="flex items-end justify-between">
         <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-bone-dim">
           {label}

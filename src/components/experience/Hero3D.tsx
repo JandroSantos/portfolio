@@ -1,20 +1,18 @@
-import { Suspense, Component, useState, useEffect, type ReactNode } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Suspense, Component, useState, useEffect, useRef, useMemo, type ReactNode } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import {
   OrbitControls,
   Environment,
-  Float,
   ContactShadows,
-  useGLTF,
 } from '@react-three/drei';
+import * as THREE from 'three';
 import { prefersReducedMotion } from '@/lib/utils';
 
 const GOLD = '#d2ab5b';
 const NAVY = '#34467e';
 const DEEP = '#1d2950';
-const GLB_URL = '/experience-object.glb';
 
-/* ─── Error boundary: try real GLB, fall back to procedural ──────────── */
+/* ─── Error boundary ─────────────────────────────────────────────────── */
 class ModelErrorBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
   { hasError: boolean }
@@ -28,90 +26,126 @@ class ModelErrorBoundary extends Component<
   }
 }
 
-/* ─── Real GLB attempt (throws on 404, caught by boundary) ───────────── */
-function GLBModel() {
-  const { scene } = useGLTF(GLB_URL);
-  return <primitive object={scene} scale={1.4} />;
-}
+/* ─── Neural Network sphere ──────────────────────────────────────────── */
+function NeuralNet({ reduced }: { reduced: boolean }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const coreRef = useRef<THREE.Mesh>(null);
+  const clock = useRef(0);
 
-/* ─── Procedural luxury sculpture: polished gold torus-knot ──────────── */
-function ProceduralSculpture() {
+  const { nodePositions, edgeGeometry } = useMemo(() => {
+    // Seeded pseudo-RNG for stable layout
+    let seed = 0xdeadbeef;
+    const rng = () => {
+      seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+      return (seed >>> 0) / 0xffffffff;
+    };
+
+    const nodePositions: THREE.Vector3[] = [];
+    for (let i = 0; i < 68; i++) {
+      const theta = rng() * Math.PI * 2;
+      const phi = Math.acos(2 * rng() - 1);
+      const r = 1.05 + rng() * 0.38;
+      nodePositions.push(
+        new THREE.Vector3(
+          r * Math.sin(phi) * Math.cos(theta),
+          r * Math.sin(phi) * Math.sin(theta),
+          r * Math.cos(phi),
+        ),
+      );
+    }
+
+    const edgePts: number[] = [];
+    for (let i = 0; i < nodePositions.length; i++) {
+      for (let j = i + 1; j < nodePositions.length; j++) {
+        if (nodePositions[i].distanceTo(nodePositions[j]) < 0.82) {
+          edgePts.push(...nodePositions[i].toArray(), ...nodePositions[j].toArray());
+        }
+      }
+    }
+
+    const edgeGeometry = new THREE.BufferGeometry();
+    edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgePts, 3));
+
+    return { nodePositions, edgeGeometry };
+  }, []);
+
+  useFrame((_, delta) => {
+    if (reduced) return;
+    clock.current += delta;
+    if (groupRef.current) {
+      groupRef.current.rotation.y += delta * 0.18;
+      groupRef.current.rotation.x = Math.sin(clock.current * 0.22) * 0.12;
+    }
+    if (coreRef.current) {
+      const mat = coreRef.current.material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = 0.55 + Math.sin(clock.current * 1.8) * 0.25;
+    }
+  });
+
   return (
-    <group>
-      {/* Hero: polished gold torus knot */}
-      <mesh castShadow receiveShadow rotation={[0.4, 0, 0.2]}>
-        <torusKnotGeometry args={[1, 0.34, 220, 36, 2, 3]} />
+    <group ref={groupRef}>
+      {/* Edges */}
+      <lineSegments geometry={edgeGeometry}>
+        <lineBasicMaterial color={NAVY} transparent opacity={0.45} />
+      </lineSegments>
+
+      {/* Nodes */}
+      {nodePositions.map((pos, i) => (
+        <mesh key={i} position={pos}>
+          <sphereGeometry args={[0.026, 7, 7]} />
+          <meshStandardMaterial
+            color={GOLD}
+            metalness={1}
+            roughness={0.18}
+            emissive={GOLD}
+            emissiveIntensity={0.45}
+          />
+        </mesh>
+      ))}
+
+      {/* Pulsing core */}
+      <mesh ref={coreRef}>
+        <sphereGeometry args={[0.2, 20, 20]} />
         <meshStandardMaterial
           color={GOLD}
-          metalness={1}
-          roughness={0.15}
-          envMapIntensity={1.6}
+          metalness={0.85}
+          roughness={0.08}
+          emissive={GOLD}
+          emissiveIntensity={0.6}
         />
       </mesh>
 
-      {/* Faceted navy gem orbiting inside for contrast */}
-      <mesh castShadow position={[0, 0, 0]} scale={0.55}>
-        <icosahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial
-          color={DEEP}
-          metalness={0.9}
-          roughness={0.1}
-          envMapIntensity={1.2}
-          flatShading
-        />
+      {/* Inner wireframe sphere */}
+      <mesh>
+        <sphereGeometry args={[1.0, 18, 18]} />
+        <meshBasicMaterial color={NAVY} wireframe transparent opacity={0.07} />
       </mesh>
     </group>
   );
 }
 
-function ModelOrFallback() {
-  return (
-    <ModelErrorBoundary fallback={<ProceduralSculpture />}>
-      <Suspense fallback={<ProceduralSculpture />}>
-        <GLBModel />
-      </Suspense>
-    </ModelErrorBoundary>
-  );
-}
-
-/* ─── Scene contents ─────────────────────────────────────────────────── */
+/* ─── Scene ──────────────────────────────────────────────────────────── */
 function Scene({ reduced }: { reduced: boolean }) {
-  const inner = <ModelOrFallback />;
-
   return (
     <>
-      {/* Soft ambient base */}
-      <ambientLight intensity={0.35} color={NAVY} />
+      <ambientLight intensity={0.25} color={NAVY} />
+      <directionalLight position={[5, 6, 4]} intensity={2.2} color={GOLD} castShadow shadow-mapSize={[1024, 1024]} />
+      <directionalLight position={[-5, 3, -4]} intensity={1.6} color={NAVY} />
+      <pointLight position={[0, 0, 0]} intensity={1.8} color={GOLD} distance={3} />
 
-      {/* Warm gold key light */}
-      <directionalLight
-        position={[5, 6, 4]}
-        intensity={2.4}
-        color={GOLD}
-        castShadow
-        shadow-mapSize={[1024, 1024]}
-      />
-
-      {/* Cool navy rim light from behind */}
-      <directionalLight position={[-5, 3, -4]} intensity={1.8} color={NAVY} />
-      <pointLight position={[0, -3, 3]} intensity={1.2} color={GOLD} />
+      <ModelErrorBoundary fallback={<NeuralNet reduced={reduced} />}>
+        <Suspense fallback={<NeuralNet reduced={reduced} />}>
+          <NeuralNet reduced={reduced} />
+        </Suspense>
+      </ModelErrorBoundary>
 
       <Environment preset="city" />
 
-      {reduced ? (
-        inner
-      ) : (
-        <Float speed={1.4} rotationIntensity={0.4} floatIntensity={0.9}>
-          {inner}
-        </Float>
-      )}
-
-      {/* Subtle reflective navy floor shadow */}
       <ContactShadows
         position={[0, -1.9, 0]}
-        opacity={0.55}
-        scale={10}
-        blur={2.6}
+        opacity={0.4}
+        scale={8}
+        blur={3}
         far={4}
         color={DEEP}
       />
@@ -121,10 +155,9 @@ function Scene({ reduced }: { reduced: boolean }) {
         enableZoom={false}
         enableDamping
         dampingFactor={0.08}
-        autoRotate={!reduced}
-        autoRotateSpeed={0.8}
-        minPolarAngle={Math.PI / 3.2}
-        maxPolarAngle={Math.PI / 1.7}
+        autoRotate={false}
+        minPolarAngle={Math.PI / 3.5}
+        maxPolarAngle={Math.PI / 1.6}
       />
     </>
   );
@@ -139,8 +172,7 @@ export default function Hero3D({ lang }: { lang: string }) {
     setReduced(prefersReducedMotion());
   }, []);
 
-  const hint =
-    lang === 'es' ? 'Arrastra para girar' : 'Drag to rotate';
+  const hint = lang === 'es' ? 'Arrastra para girar' : 'Drag to rotate';
 
   return (
     <div
@@ -150,7 +182,7 @@ export default function Hero3D({ lang }: { lang: string }) {
       <Canvas
         dpr={[1, 2]}
         shadows
-        camera={{ position: [0, 0.5, 6], fov: 42 }}
+        camera={{ position: [0, 0.4, 5.5], fov: 44 }}
         gl={{ antialias: true, alpha: true }}
         style={{ touchAction: 'none' }}
       >
@@ -159,7 +191,6 @@ export default function Hero3D({ lang }: { lang: string }) {
         </Suspense>
       </Canvas>
 
-      {/* Drag hint — fades after first interaction */}
       <div
         className="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2 transition-opacity duration-700"
         style={{ opacity: interacted ? 0 : 1 }}
@@ -174,5 +205,3 @@ export default function Hero3D({ lang }: { lang: string }) {
     </div>
   );
 }
-
-// Preload attempt is intentionally omitted — useGLTF would throw on 404.

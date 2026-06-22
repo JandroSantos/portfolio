@@ -4,6 +4,7 @@ import { CHARACTERS } from '@/data/characters';
 import { useLanguage } from '@/hooks/useLanguage';
 import { hexA } from '@/lib/utils';
 import PageShell from '@/components/layout/PageShell';
+import GitHubActivity from '@/components/experience/GitHubActivity';
 
 const exec = CHARACTERS[2];
 
@@ -210,6 +211,9 @@ export default function ExperiencePage() {
           </div>
         </div>
       </section>
+
+      {/* ══ GITHUB ACTIVITY ═════════════════════════════════════════ */}
+      <GitHubActivity lang={lang} />
 
       {/* ══ PULL QUOTE / TRACK RECORD SECTION ══════════════════════ */}
       <section className="relative overflow-hidden py-28 sm:py-40">
