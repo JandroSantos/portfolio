@@ -1,10 +1,34 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef } from 'react';
+import { Suspense, lazy, useRef } from 'react';
 import { CHARACTERS } from '@/data/characters';
 import { useLanguage } from '@/hooks/useLanguage';
+import { hexA } from '@/lib/utils';
 import PageShell from '@/components/layout/PageShell';
 
 const exec = CHARACTERS[2];
+
+/* Lazy-load the entire three.js Canvas so it never blocks initial paint. */
+const Hero3D = lazy(() => import('@/components/experience/Hero3D'));
+
+/* ─── Navy skeleton shown while the 3D bundle loads ──────────────────── */
+function Hero3DSkeleton() {
+  return (
+    <div
+      className="relative flex h-[60vh] w-full items-center justify-center overflow-hidden lg:h-[80vh]"
+      style={{ background: `radial-gradient(60% 60% at 50% 45%, ${hexA('#34467e', 0.25)}, transparent)` }}
+    >
+      <motion.div
+        animate={{ opacity: [0.3, 0.7, 0.3], scale: [0.96, 1, 0.96] }}
+        transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+        className="h-32 w-32 rounded-full"
+        style={{
+          background: `conic-gradient(from 0deg, ${hexA('#d2ab5b', 0.5)}, ${hexA('#1d2950', 0.6)}, ${hexA('#d2ab5b', 0.5)})`,
+          filter: 'blur(8px)',
+        }}
+      />
+    </div>
+  );
+}
 
 /* ─── Gold horizontal rule ─────────────────────────────────────────── */
 function GoldRule({ delay = 0 }: { delay?: number }) {
@@ -56,14 +80,13 @@ export default function ExperiencePage() {
     target: heroRef,
     offset: ['start start', 'end start'],
   });
-  const figurineY = useTransform(heroScroll, [0, 1], [0, -80]);
   const textY = useTransform(heroScroll, [0, 1], [0, -40]);
-  const heroOpacity = useTransform(heroScroll, [0, 0.75, 1], [1, 1, 0]);
+  const heroOpacity = useTransform(heroScroll, [0, 0.85, 1], [1, 1, 0]);
 
   return (
     <PageShell character={exec} background="#06080f">
 
-      {/* ══ COVER ════════════════════════════════════════════════════ */}
+      {/* ══ COVER — 3D hero centerpiece ══════════════════════════════ */}
       <div
         ref={heroRef}
         className="relative flex min-h-[100svh] flex-col overflow-hidden"
@@ -81,41 +104,44 @@ export default function ExperiencePage() {
         {/* Main cover layout */}
         <motion.div
           style={{ opacity: heroOpacity }}
-          className="relative z-10 mx-auto flex flex-1 w-full max-w-7xl flex-col items-start justify-center gap-0 px-8 py-32 sm:px-16 lg:flex-row lg:items-stretch lg:gap-0 lg:py-0"
+          className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col items-stretch gap-0 px-8 py-24 sm:px-16 lg:flex-row lg:items-center lg:py-0"
         >
-          {/* LEFT — figurine */}
-          <motion.div
-            style={{ y: figurineY }}
-            className="flex shrink-0 items-end justify-start lg:h-full lg:w-[40%] lg:items-end"
-          >
-            <motion.img
-              layoutId="world-figurine"
-              src={exec.image}
-              alt="The Executive"
-              draggable={false}
-              className="pointer-events-none h-[52svh] w-auto select-none object-contain object-bottom lg:h-[78svh]"
-              style={{ filter: `drop-shadow(0 0 80px ${w.deep}aa)` }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            />
-          </motion.div>
-
-          {/* RIGHT — heading + vertical text */}
+          {/* LEFT — heading column */}
           <motion.div
             style={{ y: textY }}
-            className="flex flex-1 flex-col justify-center gap-6 lg:justify-center lg:pl-16"
+            className="flex flex-col justify-center gap-6 lg:w-[42%] lg:pr-12"
           >
-            <p
-              className="font-mono text-[11px] uppercase tracking-[0.45em]"
-              style={{ color: `${gold}70` }}
-            >
-              {e.eyebrow}
-            </p>
+            <div className="flex items-center gap-4">
+              {/* Figurine badge — keeps shared layout transition alive */}
+              <motion.img
+                layoutId="world-figurine"
+                src={exec.image}
+                alt="The Executive"
+                draggable={false}
+                className="pointer-events-none h-16 w-16 shrink-0 select-none rounded-full object-cover object-top sm:h-20 sm:w-20"
+                style={{
+                  filter: `drop-shadow(0 0 24px ${hexA(w.deep, 0.67)})`,
+                  border: `1px solid ${hexA(gold, 0.4)}`,
+                }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              />
+              <p
+                className="font-mono text-[11px] uppercase tracking-[0.45em]"
+                style={{ color: hexA(gold, 0.44) }}
+              >
+                {e.eyebrow}
+              </p>
+            </div>
+
             <motion.h1
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25, duration: 1, ease: [0.16, 1, 0.3, 1] }}
               className="font-display font-black uppercase leading-[0.85] text-bone"
-              style={{ fontSize: 'clamp(4rem, 13vw, 10rem)' }}
+              style={{
+                fontSize: 'clamp(3.5rem, 11vw, 8.5rem)',
+                textShadow: `0 0 60px ${hexA(gold, 0.35)}`,
+              }}
             >
               {e.title}
             </motion.h1>
@@ -130,8 +156,28 @@ export default function ExperiencePage() {
             </motion.p>
           </motion.div>
 
+          {/* RIGHT — interactive 3D centerpiece */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.35, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+            className="relative flex-1"
+          >
+            {/* Gold radial glow behind the object */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background: `radial-gradient(50% 50% at 50% 50%, ${hexA(gold, 0.12)}, transparent 70%)`,
+              }}
+            />
+            <Suspense fallback={<Hero3DSkeleton />}>
+              <Hero3D lang={lang} />
+            </Suspense>
+          </motion.div>
+
           {/* Far right: vertical "EXPERIENCE" text */}
-          <div className="absolute right-6 top-1/2 -translate-y-1/2 hidden lg:block" aria-hidden>
+          <div className="absolute right-6 top-1/2 hidden -translate-y-1/2 lg:block" aria-hidden>
             <p
               className="select-none font-display font-black uppercase text-bone/[0.04]"
               style={{
@@ -154,7 +200,7 @@ export default function ExperiencePage() {
       {/* ══ STATS ROW ═══════════════════════════════════════════════ */}
       <section
         className="border-y"
-        style={{ borderColor: `${gold}20`, background: `${w.bg}08` }}
+        style={{ borderColor: hexA(gold, 0.13), background: hexA(w.bg, 0.03) }}
       >
         <div className="mx-auto max-w-5xl">
           <div className="flex flex-col divide-y sm:flex-row sm:divide-x sm:divide-y-0" style={{ ['--tw-divide-opacity' as string]: '0.12' }}>
@@ -217,7 +263,7 @@ export default function ExperiencePage() {
                   className="h-3 w-3 shrink-0 rounded-full ring-4"
                   style={{
                     background: gold,
-                    boxShadow: `0 0 20px ${gold}88`,
+                    boxShadow: `0 0 20px ${hexA(gold, 0.53)}`,
                     ['--tw-ring-color' as string]: '#06080f',
                     marginTop: '1.1rem',
                   }}
@@ -225,7 +271,7 @@ export default function ExperiencePage() {
                 {i < e.items.length - 1 && (
                   <div
                     className="mt-3 w-px flex-1"
-                    style={{ background: `linear-gradient(to bottom, ${gold}50, transparent)` }}
+                    style={{ background: `linear-gradient(to bottom, ${hexA(gold, 0.31)}, transparent)` }}
                   />
                 )}
               </div>
@@ -238,7 +284,7 @@ export default function ExperiencePage() {
                 transition={{ delay: i * 0.1, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
                 className="flex-1 pb-4"
               >
-                <p className="font-mono text-[11px] uppercase tracking-[0.35em]" style={{ color: `${gold}80` }}>
+                <p className="font-mono text-[11px] uppercase tracking-[0.35em]" style={{ color: hexA(gold, 0.5) }}>
                   {job.period}
                 </p>
                 <h3
@@ -247,11 +293,11 @@ export default function ExperiencePage() {
                 >
                   {job.role}
                 </h3>
-                <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: `${gold}60` }}>
+                <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: hexA(gold, 0.38) }}>
                   {job.org}
                 </p>
 
-                <div className="mt-6 h-px w-24" style={{ background: `${gold}30` }} />
+                <div className="mt-6 h-px w-24" style={{ background: hexA(gold, 0.19) }} />
 
                 <p className="mt-6 max-w-xl text-sm leading-relaxed text-bone/55">
                   {job.summary}
