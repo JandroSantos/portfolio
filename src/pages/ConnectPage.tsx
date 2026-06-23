@@ -8,7 +8,7 @@ import {
   type MotionValue,
 } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownRight, Mail, ExternalLink, Info, X, MapPin } from 'lucide-react';
+import { ArrowDownRight, Mail, ExternalLink, Info, X, MapPin, Sun, Moon } from 'lucide-react';
 import { CHARACTERS } from '@/data/characters';
 import { SOCIALS } from '@/data/content';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -29,18 +29,21 @@ export default function ConnectPage() {
   const { d, lang } = useLanguage();
   const c = d.connect;
   const reduced = prefersReducedMotion();
+  const [isDay, setIsDay] = useState(false);
+
+  if (reduced) {
+    return (
+      <PageShell character={social} background="#0a0503">
+        <ReducedJourney c={c} />
+        <StationSection c={c} lang={lang} />
+        <ContactPoster c={c} />
+      </PageShell>
+    );
+  }
 
   return (
-    <PageShell character={social} background="#0a0503">
-      {!reduced ? (
-        <ScrollVideo c={c} lang={lang} />
-      ) : (
-        <ReducedJourney c={c} />
-      )}
-
-      <StationSection c={c} lang={lang} />
-
-      <ContactPoster c={c} />
+    <PageShell character={social} background={isDay ? '#eef2f7' : '#0a0503'}>
+      <ScrollVideo c={c} lang={lang} isDay={isDay} setIsDay={setIsDay} />
     </PageShell>
   );
 }
@@ -51,104 +54,219 @@ type Connect = ReturnType<typeof useLanguage>['d']['connect'];
  * SCROLL-SCRUBBED VIDEO JOURNEY
  * ════════════════════════════════════════════════════════════════════ */
 
-function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
+// Helper to limit concurrency of async tasks
+async function limitConcurrency<T>(
+  concurrency: number,
+  items: T[],
+  fn: (item: T, index: number) => Promise<void>
+) {
+  const promises: Promise<void>[] = [];
+  const active = new Set<Promise<void>>();
+  for (let i = 0; i < items.length; i++) {
+    const p = fn(items[i], i).then(() => {
+      active.delete(p);
+    });
+    promises.push(p);
+    active.add(p);
+    if (active.size >= concurrency) {
+      await Promise.race(active);
+    }
+  }
+  await Promise.all(promises);
+}
+
+function ScrollVideo({
+  c,
+  lang,
+  isDay,
+  setIsDay,
+}: {
+  c: Connect;
+  lang: string;
+  isDay: boolean;
+  setIsDay: (v: boolean) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [ready, setReady] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [imagesLoaded, setImagesLoaded] = useState(0);
+  const [isReady, setIsReady] = useState(false);
+  const [openInfo, setOpenInfo] = useState(false);
+  const [showOverlays, setShowOverlays] = useState(false);
+
+  const frameCount = 660;
+  const lastDrawnIndex = useRef(-1);
+  const imagesRef = useRef<HTMLImageElement[]>([]);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
   });
 
-  // rAF-throttled scrub: scroll writes a target time, a rAF loop eases the
-  // <video> toward it and only issues a seek when the delta is meaningful.
-  // This mirrors the Mainframe mouse-scrub pattern but is scroll-driven.
-  const targetTime = useRef(0);
-  const lastSeek = useRef(-1);
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, mass: 1 });
 
-  useMotionValueEvent(scrollYProgress, 'change', (p) => {
-    const v = videoRef.current;
-    if (!v) return;
-    const dur = v.duration;
-    if (!dur || Number.isNaN(dur) || !Number.isFinite(dur)) return;
-    targetTime.current = Math.min(Math.max(p, 0), 1) * dur;
+  // Progress indicators and vignettes scaled to the smooth scroll progress
+  const cueOpacity = useTransform(smoothProgress, [0, 0.04], [1, 0]);
+  const vignetteO = useTransform(smoothProgress, [0, 0.1, 0.85, 1], [0.55, 0.4, 0.4, 0.7]);
+  
+  // Fade in the static train end image (night) at the end of the journey (progress 0.95 to 0.98)
+  const staticImageOpacity = useTransform(smoothProgress, [0.95, 0.98], [0, 1]);
+  const overlaysOpacity = useTransform(smoothProgress, [0.95, 0.98], [0, 1]);
+
+  const drawFrame = (index: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = imagesRef.current[index];
+    if (!img) return;
+
+    if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    lastDrawnIndex.current = index;
+  };
+
+  useEffect(() => {
+    let active = true;
+    let loadedCount = 0;
+    const indices = Array.from({ length: frameCount }, (_, i) => i + 1);
+
+    const loadFrame = (i: number, index: number): Promise<void> => {
+      return new Promise<void>((resolve) => {
+        const img = new Image();
+        img.src = `/frames/frame_${String(i).padStart(4, '0')}.jpg`;
+        img.onload = () => {
+          if (active) {
+            imagesRef.current[index] = img;
+            loadedCount++;
+            setImagesLoaded(loadedCount);
+            if (index === 0) {
+              drawFrame(0);
+            }
+          }
+          resolve();
+        };
+        img.onerror = () => {
+          if (active) {
+            loadedCount++;
+            setImagesLoaded(loadedCount);
+          }
+          resolve();
+        };
+      });
+    };
+
+    const startPreload = async () => {
+      await Promise.all([loadFrame(1, 0), loadFrame(660, 659)]);
+      if (active) {
+        drawFrame(0);
+      }
+
+      const remainingIndices = indices.filter((i) => i !== 1 && i !== 660);
+      await limitConcurrency(16, remainingIndices, async (i) => {
+        await loadFrame(i, i - 1);
+      });
+
+      if (active) {
+        setIsReady(true);
+      }
+    };
+
+    startPreload();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useMotionValueEvent(smoothProgress, 'change', (p) => {
+    const index = Math.max(0, Math.min(frameCount - 1, Math.floor(p * frameCount)));
+    if (index !== lastDrawnIndex.current) {
+      drawFrame(index);
+    }
   });
 
   useEffect(() => {
-    if (failed) return;
-    let raf = 0;
-    const tick = () => {
-      raf = requestAnimationFrame(tick);
-      const v = videoRef.current;
-      if (!v) return;
-      const dur = v.duration;
-      if (!dur || Number.isNaN(dur) || !Number.isFinite(dur)) return;
-      const want = targetTime.current;
-      // Only seek when the change is perceptible — avoids seek-flooding.
-      if (Math.abs(want - lastSeek.current) > 0.03) {
-        try {
-          v.currentTime = want;
-          lastSeek.current = want;
-        } catch {
-          /* seek can throw before metadata is ready — ignore */
-        }
-      }
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [failed]);
-
-  const onLoaded = () => {
-    const v = videoRef.current;
-    if (v && v.duration && Number.isFinite(v.duration) && v.duration > 0) {
-      setReady(true);
-      v.pause();
-    } else {
-      setFailed(true);
+    if (isReady) {
+      const p = smoothProgress.get();
+      const index = Math.max(0, Math.min(frameCount - 1, Math.floor(p * frameCount)));
+      drawFrame(index);
     }
-  };
+  }, [isReady]);
 
-  // Progress indicator fill.
-  const fillScaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
-  const cueOpacity = useTransform(scrollYProgress, [0, 0.04], [1, 0]);
-  const vignetteO = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0.55, 0.4, 0.4, 0.7]);
-
-  const showFallback = failed || !ready;
+  useMotionValueEvent(smoothProgress, 'change', (p) => {
+    if (p >= 0.95 && !showOverlays) {
+      setShowOverlays(true);
+    } else if (p < 0.95 && showOverlays) {
+      setShowOverlays(false);
+    }
+  });
 
   return (
-    <div ref={containerRef} className="relative" style={{ height: '500vh' }}>
-      <div className="sticky top-0 h-[100vh] w-full overflow-hidden">
-        {/* The scrubbed video */}
-        <video
-          ref={videoRef}
-          src={VIDEO_SRC}
-          muted
-          playsInline
-          preload="auto"
-          onLoadedMetadata={onLoaded}
-          onError={() => setFailed(true)}
-          className="absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: showFallback ? 0 : 1, transition: 'opacity 0.6s ease' }}
+    <div ref={containerRef} className="relative" style={{ height: '1000vh' }}>
+      {/* Fixed background for the entire page scroll (remains behind StationSection and ContactPoster) */}
+      <div className="fixed inset-0 w-full h-[100vh] overflow-hidden bg-[#0a0503] z-0 pointer-events-none">
+        {/* Canvas container representing the journey */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 h-full w-full object-contain"
+          style={{ opacity: isReady ? 1 : 0, transition: 'opacity 0.5s ease' }}
         />
 
-        {/* Tasteful coral fallback when the video is missing/undecodable */}
+        {/* High-res static image overlay (Night) that covers the canvas when the train stops */}
+        {isReady && (
+          <motion.img
+            src="/station_end.jpg"
+            alt="Estación"
+            className="absolute inset-0 h-full w-full object-contain"
+            style={{ opacity: staticImageOpacity, pointerEvents: 'none' }}
+          />
+        )}
+
+        {/* High-res static image overlay (Day) that crossfades over the night background */}
+        {isReady && (
+          <motion.img
+            src="/station_day.jpg"
+            alt="Estación de Día"
+            className="absolute inset-0 h-full w-full object-contain"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isDay ? 1 : 0 }}
+            transition={{ duration: 0.8, ease: EASE }}
+            style={{ pointerEvents: 'none' }}
+          />
+        )}
+      </div>
+
+      <div className="sticky top-0 h-[100vh] w-full overflow-hidden z-10 pointer-events-none">
+        {/* Loading Overlay */}
         <AnimatePresence>
-          {showFallback && (
+          {!isReady && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0"
-              style={{
-                background: `
-                  radial-gradient(120% 90% at 20% 110%, ${hexA(w.bg, 0.55)} 0%, transparent 55%),
-                  radial-gradient(100% 80% at 85% -10%, ${hexA(w.deep, 0.5)} 0%, transparent 50%),
-                  linear-gradient(180deg, #1a0c06 0%, #0a0503 55%, #060302 100%)`,
-              }}
+              transition={{ duration: 0.5, ease: 'easeInOut' }}
+              className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0503] z-50 pointer-events-auto"
             >
-              <FallbackHorizon />
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center"
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.5em] mb-4 text-[#f26d4b]">
+                  {lang === 'es' ? 'Cargando viaje...' : 'Loading journey...'}
+                </p>
+                <div className="h-1 w-48 bg-white/10 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-[#f26d4b]"
+                    style={{ width: `${(imagesLoaded / frameCount) * 100}%` }}
+                  />
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -164,47 +282,47 @@ function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
           }}
         />
 
-        {/* Text beats */}
-        <div className="absolute inset-0">
-          <Beat progress={scrollYProgress} range={[0.0, 0.04, 0.16, 0.21]} align="center">
+        {/* Text beats — using the full scroll progress ranges */}
+        <div className="absolute inset-0 pointer-events-none">
+          <Beat progress={smoothProgress} range={[0.0, 0.04, 0.16, 0.21]} align="center">
             <BeatIntro c={c} />
           </Beat>
 
-          <Beat progress={scrollYProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+          <Beat progress={smoothProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'El origen' : 'The origin'}
             </p>
-            <p className="mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] text-bone">
+            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {c.bio[0]}
             </p>
           </Beat>
 
-          <Beat progress={scrollYProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+          <Beat progress={smoothProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'El recorrido' : 'The journey'}
             </p>
-            <p className="mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] text-bone">
+            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {c.bio[1] ?? c.bio[0]}
             </p>
           </Beat>
 
-          <Beat progress={scrollYProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+          <Beat progress={smoothProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'Ahora mismo' : 'Right now'}
             </p>
-            <p className="mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] text-bone">
+            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {c.now}
             </p>
           </Beat>
 
-          <Beat progress={scrollYProgress} range={[0.94, 0.97, 1.0, 1.0]} align="center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+          <Beat progress={smoothProgress} range={[0.91, 0.93, 0.95, 0.97]} align="center">
+            <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'Última parada' : 'Last stop'}
             </p>
-            <h2 className="mt-3 font-display text-[clamp(2.4rem,10vw,8rem)] uppercase leading-[0.85] text-bone">
+            <h2 className={`mt-3 font-display text-[clamp(2.4rem,10vw,8rem)] uppercase leading-[0.85] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {lang === 'es' ? 'Estación' : 'Station'}
             </h2>
-            <p className="mt-4 inline-flex items-center gap-2 font-mono text-xs text-bone/60">
+            <p className={`mt-4 inline-flex items-center gap-2 font-mono text-xs ${isDay ? 'text-slate-500' : 'text-bone/60'}`}>
               {lang === 'es' ? 'sigue bajando' : 'keep scrolling'}
               <ArrowDownRight className="h-4 w-4" />
             </p>
@@ -231,10 +349,44 @@ function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
         <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/5">
           <motion.div
             className="h-full origin-left"
-            style={{ scaleX: fillScaleX, background: w.bg }}
+            style={{ scaleX: smoothProgress, background: w.bg }}
           />
         </div>
       </div>
+
+      {/* Floating Day/Night Toggle (visible when overlays are active) */}
+      {showOverlays && (
+        <div className="fixed top-6 right-6 z-30 pointer-events-auto">
+          <DayNightToggle isDay={isDay} setIsDay={setIsDay} lang={lang} />
+        </div>
+      )}
+
+      {/* Interactive overlays at the end of the journey */}
+      <motion.div
+        style={{ opacity: overlaysOpacity }}
+        className={`absolute inset-0 z-20 ${showOverlays ? 'pointer-events-auto' : 'pointer-events-none'}`}
+      >
+        {showOverlays && (
+          <InteractiveStation
+            isDay={isDay}
+            setIsDay={setIsDay}
+            lang={lang}
+            onOpenInfo={() => setOpenInfo(true)}
+          />
+        )}
+      </motion.div>
+
+      {/* Info panel popup */}
+      <AnimatePresence>
+        {openInfo && (
+          <InfoPanel
+            c={c}
+            lang={lang}
+            onClose={() => setOpenInfo(false)}
+            isDay={isDay}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -243,17 +395,14 @@ function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
 function FallbackHorizon() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      {/* sun */}
       <div
         className="absolute left-1/2 top-[52%] h-[34vmin] w-[34vmin] -translate-x-1/2 rounded-full blur-[2px]"
         style={{ background: `radial-gradient(circle, ${hexA(w.panel, 0.9)} 0%, ${hexA(w.bg, 0.4)} 45%, transparent 70%)` }}
       />
-      {/* horizon line */}
       <div
         className="absolute left-0 right-0 top-[62%] h-px"
         style={{ background: hexA(w.bg, 0.4) }}
       />
-      {/* passing rails — perspective streaks */}
       <div
         className="absolute inset-x-0 bottom-0 top-[62%]"
         style={{
@@ -361,6 +510,255 @@ function ReducedJourney({ c }: { c: Connect }) {
   );
 }
 
+function DayNightToggle({
+  isDay,
+  setIsDay,
+  lang,
+}: {
+  isDay: boolean;
+  setIsDay: (v: boolean) => void;
+  lang: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => setIsDay(!isDay)}
+      className="group relative flex h-10 w-20 cursor-pointer items-center rounded-full p-1 transition-colors duration-500 ease-in-out focus:outline-none"
+      style={{
+        background: isDay ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.08)',
+        border: isDay ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid rgba(242, 109, 75, 0.3)',
+        boxShadow: isDay ? 'none' : `0 0 15px ${hexA(w.bg, 0.2)}`,
+      }}
+      aria-label={lang === 'es' ? 'Cambiar modo de día/noche' : 'Toggle day/night mode'}
+    >
+      <motion.div
+        className="z-10 flex h-8 w-8 items-center justify-center rounded-full shadow-md"
+        animate={{ x: isDay ? 40 : 0 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+        style={{
+          background: isDay ? '#f26d4b' : '#1e1b4b',
+        }}
+      >
+        {isDay ? (
+          <Sun className="h-4 w-4 text-white" />
+        ) : (
+          <Moon className="h-4 w-4 text-amber-300" />
+        )}
+      </motion.div>
+
+      <div className="absolute inset-0 flex items-center justify-between px-2.5 pointer-events-none text-slate-400">
+        <Moon className={`h-4 w-4 transition-opacity duration-300 ${isDay ? 'opacity-40 text-slate-600' : 'opacity-0'}`} />
+        <Sun className={`h-4 w-4 transition-opacity duration-300 ${isDay ? 'opacity-0' : 'opacity-40 text-amber-500/50'}`} />
+      </div>
+    </button>
+  );
+}
+
+function CatVideoFollower({ mouseX, isDay }: { mouseX: number; isDay: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoError, setVideoError] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+
+  const fine = hasFinePointer();
+  const reduced = prefersReducedMotion();
+  const fallbackRef = useRef<HTMLDivElement>(null);
+  
+  const rot = useSpring(0, { stiffness: 120, damping: 14, mass: 0.5 });
+  const tx = useSpring(0, { stiffness: 120, damping: 16 });
+  const ty = useSpring(0, { stiffness: 120, damping: 16 });
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || videoError || !videoLoaded) return;
+    
+    const duration = video.duration || 1;
+    const targetTime = mouseX * duration;
+    video.currentTime = targetTime;
+  }, [mouseX, videoError, videoLoaded]);
+
+  useEffect(() => {
+    if (reduced || !videoError) return;
+
+    if (!fine) {
+      let raf = 0;
+      const start = performance.now();
+      const loop = (t: number) => {
+        raf = requestAnimationFrame(loop);
+        const s = Math.sin((t - start) / 900);
+        rot.set(s * 10);
+        tx.set(s * 4);
+      };
+      raf = requestAnimationFrame(loop);
+      return () => cancelAnimationFrame(raf);
+    }
+
+    const onMove = (e: MouseEvent) => {
+      const el = fallbackRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const clamped = Math.max(-18, Math.min(18, angle * 0.2));
+      rot.set(clamped);
+      tx.set(Math.max(-6, Math.min(6, dx * 0.01)));
+      ty.set(Math.max(-4, Math.min(4, dy * 0.01)));
+    };
+    window.addEventListener('mousemove', onMove);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [fine, reduced, videoError, rot, tx, ty]);
+
+  if (videoError) {
+    return (
+      <motion.div
+        ref={fallbackRef}
+        style={{
+          rotate: rot,
+          x: tx,
+          y: ty,
+          mixBlendMode: 'multiply',
+          filter: isDay ? 'none' : 'brightness(1.1) contrast(1.1)',
+        }}
+        className="w-full h-full select-none"
+      >
+        <img
+          src="/cat_fallback.jpg"
+          alt="Gato de fieltro"
+          draggable={false}
+          className="w-full h-full object-contain"
+        />
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="w-full h-full">
+      <video
+        ref={videoRef}
+        src="/cat.mp4"
+        playsInline
+        muted
+        preload="auto"
+        onLoadedMetadata={() => setVideoLoaded(true)}
+        onError={() => setVideoError(true)}
+        className="w-full h-full object-contain"
+        style={{ display: videoLoaded ? 'block' : 'none' }}
+      />
+      {!videoLoaded && (
+        <div className="w-full h-full bg-transparent flex items-center justify-center">
+          <div className="h-4 w-4 rounded-full border-2 border-[#f26d4b] border-t-transparent animate-spin" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InteractiveStation({
+  isDay,
+  setIsDay,
+  lang,
+  onOpenInfo,
+}: {
+  isDay: boolean;
+  setIsDay: (v: boolean) => void;
+  lang: string;
+  onOpenInfo: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [mouseX, setMouseX] = useState(0.5);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    setMouseX(Math.max(0, Math.min(1, x)));
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseMove={handleMouseMove}
+      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+    >
+      <div className="relative aspect-video w-full h-full max-w-[177.78vh] max-h-[56.25vw] pointer-events-auto overflow-hidden">
+        <button
+          type="button"
+          onClick={onOpenInfo}
+          className="absolute cursor-pointer border border-dashed border-transparent hover:border-white/40 rounded-lg transition-colors group z-10"
+          style={{
+            left: '54%',
+            top: '36%',
+            width: '18%',
+            height: '35%',
+          }}
+          aria-label={lang === 'es' ? 'Abrir información de Jandro' : 'Open Jandro info'}
+          data-cursor="hover"
+        >
+          <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/85 text-white font-mono text-[10px] uppercase tracking-wider py-1.5 px-3 rounded border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-20">
+            {lang === 'es' ? 'Ficha de Información (Pulsar)' : 'Information File (Click)'}
+          </div>
+        </button>
+
+        <div
+          className="absolute"
+          style={{
+            left: '46%',
+            top: '64%',
+            width: '8%',
+            height: '14%',
+          }}
+        >
+          <CatVideoFollower mouseX={mouseX} isDay={isDay} />
+        </div>
+
+        <a
+          href="/projects"
+          className="absolute flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 group z-10 select-none"
+          style={{
+            left: '76%',
+            top: '45%',
+            width: '16%',
+            height: '18%',
+            border: isDay ? '2px solid #475569' : '2px solid #f26d4b',
+            background: isDay 
+              ? 'linear-gradient(135deg, #ffffff, #f1f5f9)' 
+              : 'rgba(242, 109, 75, 0.05)',
+            boxShadow: isDay
+              ? '0 6px 12px -2px rgba(15, 23, 42, 0.12), 0 3px 6px -3px rgba(15, 23, 42, 0.08)'
+              : '0 0 20px rgba(242, 109, 75, 0.25), inset 0 0 10px rgba(242, 109, 75, 0.15)',
+          }}
+          data-cursor="hover"
+        >
+          {/* Hanging Chains */}
+          <div 
+            className="absolute top-0 left-[20%] w-[2px] h-[30px] -translate-y-full transition-colors duration-300"
+            style={{ backgroundColor: isDay ? '#475569' : '#f26d4b' }}
+          />
+          <div 
+            className="absolute top-0 right-[20%] w-[2px] h-[30px] -translate-y-full transition-colors duration-300"
+            style={{ backgroundColor: isDay ? '#475569' : '#f26d4b' }}
+          />
+          
+          <span 
+            className={`font-mono text-[9px] uppercase tracking-[0.2em] font-semibold ${isDay ? 'text-slate-500' : 'text-[#f26d4b]'}`}
+            style={{
+              textShadow: isDay ? 'none' : '0 0 8px rgba(242, 109, 75, 0.6)',
+            }}
+          >
+            {lang === 'es' ? 'Siguiente Parada' : 'Next Stop'}
+          </span>
+          <span className={`font-display text-sm md:text-base uppercase tracking-wider font-bold group-hover:scale-105 transition-transform mt-1.5 ${isDay ? 'text-slate-800 group-hover:text-[#d04f2f]' : 'text-bone group-hover:text-[#ff8d6f]'}`}>
+            {lang === 'es' ? 'Proyectos ➔' : 'Projects ➔'}
+          </span>
+        </a>
+      </div>
+    </div>
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════════
  * THE STATION — cat follower + info booth
  * ════════════════════════════════════════════════════════════════════ */
@@ -383,24 +781,17 @@ function StationSection({ c, lang }: { c: Connect; lang: string }) {
           {lang === 'es' ? 'Bienvenido a la parada' : 'Welcome to the platform'}
         </h2>
 
-        {/* Platform: cat + info booth */}
         <div className="relative mt-16 grid items-end gap-10 md:grid-cols-2">
           <CatFollower />
 
           <InfoBooth lang={lang} onOpen={() => setOpen(true)} />
         </div>
 
-        {/* Platform floor line */}
         <div
           className="mt-2 h-px w-full"
           style={{ background: `linear-gradient(90deg, transparent, ${hexA(w.bg, 0.5)}, transparent)` }}
         />
       </div>
-
-      {/* Info panel */}
-      <AnimatePresence>
-        {open && <InfoPanel c={c} lang={lang} onClose={() => setOpen(false)} />}
-      </AnimatePresence>
     </section>
   );
 }
@@ -411,7 +802,6 @@ function CatFollower() {
   const headRef = useRef<HTMLDivElement>(null);
   const [imgOk, setImgOk] = useState({ body: true, head: true });
 
-  // Spring-smoothed head rotation + tiny translate.
   const rot = useSpring(0, { stiffness: 120, damping: 14, mass: 0.5 });
   const tx = useSpring(0, { stiffness: 120, damping: 16 });
   const ty = useSpring(0, { stiffness: 120, damping: 16 });
@@ -419,7 +809,6 @@ function CatFollower() {
   useEffect(() => {
     if (reduced) return;
 
-    // Touch / coarse pointer: gentle auto-sway instead of mouse tracking.
     if (!fine) {
       let raf = 0;
       const start = performance.now();
@@ -442,7 +831,6 @@ function CatFollower() {
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
       const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-      // Clamp the tilt to ±18deg around the cat's resting "up" pose.
       const clamped = Math.max(-18, Math.min(18, angle * 0.2));
       rot.set(clamped);
       tx.set(Math.max(-6, Math.min(6, dx * 0.01)));
@@ -454,14 +842,12 @@ function CatFollower() {
 
   return (
     <div className="relative flex h-64 items-end justify-center md:justify-start">
-      {/* Platform pedestal */}
       <div
         className="absolute bottom-0 left-1/2 h-3 w-48 -translate-x-1/2 rounded-full blur-md md:left-24"
         style={{ background: hexA(w.bg, 0.3) }}
       />
 
       <div className="relative" style={{ width: 180, height: 200 }}>
-        {/* Body */}
         {imgOk.body ? (
           <img
             src={CAT_BODY_SRC}
@@ -474,7 +860,6 @@ function CatFollower() {
           <SvgCatBody />
         )}
 
-        {/* Head — rotates toward the cursor */}
         <motion.div
           ref={headRef}
           style={{ rotate: rot, x: tx, y: ty }}
@@ -497,7 +882,6 @@ function CatFollower() {
   );
 }
 
-/* Pure-SVG cat fallbacks so the scene works without any image assets. */
 function SvgCatHead() {
   return (
     <svg width="80" height="72" viewBox="0 0 80 72" aria-label="cat" role="img">
@@ -547,7 +931,6 @@ function InfoBooth({ lang, onOpen }: { lang: string; onOpen: () => void }) {
       }}
       data-cursor="hover"
     >
-      {/* glow pulse */}
       <span
         aria-hidden
         className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-2xl transition-opacity group-hover:opacity-80"
@@ -573,8 +956,7 @@ function InfoBooth({ lang, onOpen }: { lang: string; onOpen: () => void }) {
   );
 }
 
-function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: () => void }) {
-  // Close on Escape.
+function InfoPanel({ c, lang, onClose, isDay }: { c: Connect; lang: string; onClose: () => void; isDay: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -592,26 +974,28 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
         type="button"
         aria-label="close"
         onClick={onClose}
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className={`absolute inset-0 backdrop-blur-sm transition-colors duration-300 ${isDay ? 'bg-slate-900/40' : 'bg-black/70'}`}
       />
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.98 }}
         transition={{ duration: 0.45, ease: EASE }}
-        className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-7 sm:p-9"
+        className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-7 sm:p-9 transition-all duration-300"
         style={{
-          borderColor: hexA(w.bg, 0.4),
-          background: 'linear-gradient(180deg, #140a06, #0a0503)',
-          boxShadow: `0 30px 120px ${hexA(w.deep, 0.6)}`,
+          borderColor: isDay ? 'rgba(15, 23, 42, 0.15)' : hexA(w.bg, 0.4),
+          background: isDay ? 'linear-gradient(180deg, #ffffff, #f8fafc)' : 'linear-gradient(180deg, #140a06, #0a0503)',
+          boxShadow: isDay
+            ? '0 30px 60px -15px rgba(15, 23, 42, 0.15)'
+            : `0 30px 120px ${hexA(w.deep, 0.6)}`,
         }}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'Ficha' : 'File'}
             </p>
-            <h3 className="mt-2 font-display text-3xl uppercase leading-none text-bone">
+            <h3 className={`mt-2 font-display text-3xl uppercase leading-none ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {social.alias}
             </h3>
           </div>
@@ -619,28 +1003,26 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
             type="button"
             onClick={onClose}
             aria-label="close"
-            className="rounded-full border p-2 text-bone/70 transition-colors hover:text-bone"
-            style={{ borderColor: hexA(w.bg, 0.3) }}
+            className={`rounded-full border p-2 transition-colors ${isDay ? 'text-slate-500 hover:text-slate-900' : 'text-bone/70 hover:text-bone'}`}
+            style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.15)' : hexA(w.bg, 0.3) }}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Facts */}
-        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
           {lang === 'es' ? 'Datos' : 'Facts'}
         </p>
-        <dl className="mt-3 divide-y" style={{ borderColor: hexA(w.bg, 0.15) }}>
+        <dl className="mt-3 divide-y" style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.15) }}>
           {c.facts.map((f) => (
-            <div key={f.k} className="flex items-baseline justify-between gap-6 py-3" style={{ borderColor: hexA(w.bg, 0.15) }}>
-              <dt className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone/50">{f.k}</dt>
-              <dd className="text-right text-sm font-medium text-bone">{f.v}</dd>
+            <div key={f.k} className="flex items-baseline justify-between gap-6 py-3" style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.15) }}>
+              <dt className={`font-mono text-[11px] uppercase tracking-[0.2em] ${isDay ? 'text-slate-500' : 'text-bone/50'}`}>{f.k}</dt>
+              <dd className={`text-right text-sm font-medium ${isDay ? 'text-slate-900' : 'text-bone'}`}>{f.v}</dd>
             </div>
           ))}
         </dl>
 
-        {/* Values */}
-        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
           {lang === 'es' ? 'Cómo trabajo' : 'How I work'}
         </p>
         <div className="mt-3 space-y-3">
@@ -648,12 +1030,57 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
             <div
               key={v.label}
               className="rounded-xl border p-4"
-              style={{ borderColor: hexA(w.bg, 0.2), background: hexA(w.bg, 0.06) }}
+              style={{
+                borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.2),
+                background: isDay ? 'rgba(15, 23, 42, 0.02)' : hexA(w.bg, 0.06),
+              }}
             >
-              <p className="font-display text-lg uppercase leading-none text-bone">{v.label}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-bone/60">{v.note}</p>
+              <p className={`font-display text-lg uppercase leading-none ${isDay ? 'text-slate-900' : 'text-bone'}`}>{v.label}</p>
+              <p className={`mt-1.5 text-sm leading-relaxed ${isDay ? 'text-slate-600' : 'text-bone/60'}`}>{v.note}</p>
             </div>
           ))}
+        </div>
+
+        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+          {lang === 'es' ? 'Contacto' : 'Contact'}
+        </p>
+        <div className="mt-3 space-y-4">
+          <div
+            className="rounded-xl border p-5 transition-colors duration-300"
+            style={{
+              borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.25),
+              background: isDay ? 'rgba(15, 23, 42, 0.02)' : hexA(w.bg, 0.06),
+            }}
+          >
+            <p className={`font-mono text-[10px] uppercase tracking-wider ${isDay ? 'text-slate-500' : 'text-bone/50'}`}>
+              {c.cta.lead}
+            </p>
+            <a
+              href={SOCIALS[0].href}
+              className={`mt-2 block break-words font-display text-2xl uppercase hover:opacity-85 transition-opacity ${isDay ? 'text-slate-900' : 'text-bone'}`}
+            >
+              {SOCIALS[0].handle}
+            </a>
+            <div className={`mt-4 flex items-center gap-2 font-mono text-xs ${isDay ? 'text-slate-600' : 'text-bone/70'}`}>
+              <Mail className="h-4 w-4 text-[#f26d4b]" />
+              <span>{c.cta.button}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4 pt-2">
+            {SOCIALS.slice(1).map((s) => (
+              <a
+                key={s.label}
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-75 transition-opacity ${isDay ? 'text-slate-700' : 'text-bone/80'}`}
+              >
+                {s.label}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ))}
+          </div>
         </div>
       </motion.div>
     </motion.div>
