@@ -71,3 +71,4 @@ export default defineConfig([
   },
 ])
 ```
+cuando el video del scroll termine, debes dejar el video que te añado como fondo, manten la idea de la casa de información y eso, lo de la imagen no lo habias conseguido bien ya que no era pantalla completa, pero ahora en cuanto acabe pones ese video siguiendo esto: on the attached design and mouse-scRUB controlled background video. The background is a video that is muted, dosent autoplay, and is controlled by horizontal mouse movement -- mouse on the left = start of the video, mouse on the right = end Movement should feel smooth and buttery.         -----------------              the cat turns head to the right and then to left at a steady, natural pace. Its eyes follow the movement naturally. The body stays still, no hears. keep the station, lighting, composition, and character design unchanged. No camera movement, no zoom, no cuts, no scene change
