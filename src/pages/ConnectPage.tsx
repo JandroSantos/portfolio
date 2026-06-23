@@ -364,7 +364,7 @@ function ScrollVideo({
       {/* Interactive overlays at the end of the journey */}
       <motion.div
         style={{ opacity: overlaysOpacity }}
-        className={`absolute inset-0 z-20 ${showOverlays ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        className={`fixed inset-0 z-20 ${showOverlays ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         {showOverlays && (
           <InteractiveStation
