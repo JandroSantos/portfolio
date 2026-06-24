@@ -7,12 +7,12 @@ import {
   useTransform,
   type MotionValue,
 } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CornerDownRight } from 'lucide-react';
-import { CHARACTERS, CHARACTER_COUNT, getByIndex, type Character } from '@/data/characters';
-import { SECTION_FOR } from '@/data/content';
+import { CHARACTERS, CHARACTER_COUNT, getByIndex } from '@/data/characters';
+import { PATH_FOR } from '@/data/routes';
 import { useWorld } from '@/hooks/useWorld';
 import { useLanguage } from '@/hooks/useLanguage';
-import { scrollToId } from '@/lib/scroll';
 import { hasFinePointer, prefersReducedMotion } from '@/lib/utils';
 
 type Role = 'center' | 'left' | 'right' | 'back';
@@ -156,12 +156,23 @@ function Figure({
             willChange: 'transform',
           }}
         >
-          <img
-            src={src}
-            alt={alt}
-            draggable={false}
-            className="h-full w-full object-contain object-bottom"
-          />
+          {isCenter ? (
+            <motion.img
+              layoutId="world-figurine"
+              src={src}
+              alt={alt}
+              draggable={false}
+              className="h-full w-full object-contain object-bottom"
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            />
+          ) : (
+            <img
+              src={src}
+              alt={alt}
+              draggable={false}
+              className="h-full w-full object-contain object-bottom"
+            />
+          )}
         </div>
       </motion.div>
     </div>
@@ -235,6 +246,7 @@ function NavArrow({
 export default function CharacterCarousel() {
   const { active, character, next, prev, goTo, direction } = useWorld();
   const { d } = useLanguage();
+  const navigate = useNavigate();
   const cc = d.characters[character.key];
   const [isMobile, setIsMobile] = useState(false);
   const [hinted, setHinted] = useState(false);
@@ -302,7 +314,7 @@ export default function CharacterCarousel() {
     dragStart.current = null;
   };
 
-  const enterSection = () => scrollToId(SECTION_FOR[character.key]);
+  const enterSection = () => navigate(PATH_FOR[character.key]);
 
   return (
     <section

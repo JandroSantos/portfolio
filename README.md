@@ -1,74 +1,67 @@
-# React + TypeScript + Vite
+# Jandro Santos — Portfolio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Portfolio interactivo personal. Cuatro personajes 3D, cuatro "mundos", un
+developer. Cada personaje recolorea la página entera y abre una sección:
+**Conecta**, **Proyectos**, **Experiencia** y **Estudios**.
 
-Currently, two official plugins are available:
+Construido con **React + Vite + TypeScript + Tailwind v4 + Framer Motion**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Características
 
-## React Compiler
+- 🎭 **Carrusel de personajes** que recolorea todo el sitio y navega entre secciones
+- 🧲 **Hero magnético** con tipografía cinética gigante
+- 🌗 **Bilingüe ES/EN** con un cambio de idioma premium y con guasa
+- 🃏 **Easter egg**: una terminal interactiva real (código Konami `↑↑↓↓←→←→ B A` o escribe `sudo`)
+- ✨ Cursor personalizado, scroll suave (Lenis), efectos de "decode", cards apiladas
+- ♿ Accesible: respeta `prefers-reduced-motion`, navegación por teclado, áreas táctiles ≥44px
+- 📱 Responsive de verdad — pensado para que en móvil quede igual de guapo
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Desarrollo
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev      # servidor de desarrollo
+npm run build    # build de producción
+npm run preview  # previsualizar el build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## ⚠️ Imágenes de los personajes (IMPORTANTE)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Las 4 figuras 3D viven en `src/assets/characters/` con estos nombres exactos:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+| Personaje      | Archivo       | Mundo / Sección       |
+| -------------- | ------------- | --------------------- |
+| El Conector    | `social.png`  | Conecta (coral)       |
+| El Constructor | `builder.png` | Proyectos (naranja)   |
+| El Ejecutivo   | `exec.png`    | Experiencia (azul)    |
+| El Estudiante  | `nerd.png`    | Estudios (verde)      |
+
+Ahora mismo hay **placeholders** generados automáticamente. Para poner tus
+imágenes reales, **sustituye esos 4 archivos** manteniendo el nombre (PNG con
+fondo transparente, formato vertical). No hay que tocar nada de código: encajan
+solas.
+
+## Editar el contenido
+
+Casi todo el texto está en un único sitio, en español e inglés:
+
+- **`src/i18n/dict.ts`** — bio, proyectos, experiencia, estudios, skills,
+  microcopy y los textos del cambio de idioma. Edita `es` y `en`.
+- **`src/data/content.ts`** — datos neutros (nombre, redes sociales, email).
+- **`src/data/characters.ts`** — colores de cada mundo y orden del carrusel.
+
+## Estructura
+
+```
+src/
+├── components/
+│   ├── carousel/   # el navegador de personajes
+│   ├── sections/   # Conecta · Proyectos · Experiencia · Estudios
+│   ├── terminal/   # el easter egg
+│   └── ui/         # Magnet, Cursor, DecodeText, toggles…
+├── data/           # datos neutros y configuración de personajes
+├── hooks/          # mundo activo, idioma, scroll, easter egg
+├── i18n/           # diccionario ES/EN
+└── lib/            # utilidades
 ```
 cuando el video del scroll termine, debes dejar el video que te añado como fondo, manten la idea de la casa de información y eso, lo de la imagen no lo habias conseguido bien ya que no era pantalla completa, pero ahora en cuanto acabe pones ese video siguiendo esto: on the attached design and mouse-scRUB controlled background video. The background is a video that is muted, dosent autoplay, and is controlled by horizontal mouse movement -- mouse on the left = start of the video, mouse on the right = end Movement should feel smooth and buttery.         -----------------              the cat turns head to the right and then to left at a steady, natural pace. Its eyes follow the movement naturally. The body stays still, no hears. keep the station, lighting, composition, and character design unchanged. No camera movement, no zoom, no cuts, no scene change
