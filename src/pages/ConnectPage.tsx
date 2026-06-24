@@ -3,7 +3,6 @@ import {
   useScroll,
   useTransform,
   useMotionValueEvent,
-  useSpring,
   AnimatePresence,
   type MotionValue,
 } from 'framer-motion';
@@ -14,7 +13,7 @@ import { CHARACTERS } from '@/data/characters';
 import { SOCIALS } from '@/data/content';
 import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
-import { hexA, prefersReducedMotion, hasFinePointer } from '@/lib/utils';
+import { hexA, prefersReducedMotion } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 const social = CHARACTERS[0];
@@ -82,7 +81,6 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
   const [locked, setLocked] = useState(false);
   const [isDay, setIsDay] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [mouseX, setMouseX] = useState(0.5);
 
   // ── Scroll progress ────────────────────────────────────────────────────────
   const { scrollYProgress } = useScroll({
@@ -380,10 +378,6 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
         {/* Interactive station overlay — fixed fullscreen above station images */}
         <motion.div
           aria-hidden={!locked}
-          onMouseMove={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect();
-            setMouseX(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)));
-          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -487,14 +481,6 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
           </div>
         </Link>
 
-        {/* Cat video — scrubbed by horizontal mouse position */}
-        <div
-          className="pointer-events-none absolute"
-          style={{ left: '46%', top: '64%', width: '8%', height: '14%' }}
-        >
-          <CatVideoFollower mouseX={mouseX} isDay={isDay} />
-        </div>
-
         {/* Latch release hint */}
         <AnimatePresence>
           {locked && (
@@ -547,105 +533,6 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════════════════════
-// CAT VIDEO FOLLOWER — video scrubbed by horizontal mouse position
-// ════════════════════════════════════════════════════════════════════════════
-
-function CatVideoFollower({ mouseX, isDay }: { mouseX: number; isDay: boolean }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const fallbackRef = useRef<HTMLDivElement>(null);
-  const [videoError, setVideoError] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
-
-  const fine = hasFinePointer();
-  const reduced = prefersReducedMotion();
-
-  const rot = useSpring(0, { stiffness: 120, damping: 14, mass: 0.5 });
-  const tx = useSpring(0, { stiffness: 120, damping: 16 });
-  const ty = useSpring(0, { stiffness: 120, damping: 16 });
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || videoError || !videoLoaded) return;
-    const duration = video.duration || 1;
-    video.currentTime = mouseX * duration;
-  }, [mouseX, videoError, videoLoaded]);
-
-  useEffect(() => {
-    if (reduced || !videoError) return;
-    if (!fine) {
-      let raf = 0;
-      const start = performance.now();
-      const loop = (t: number) => {
-        raf = requestAnimationFrame(loop);
-        const s = Math.sin((t - start) / 900);
-        rot.set(s * 10);
-        tx.set(s * 4);
-      };
-      raf = requestAnimationFrame(loop);
-      return () => cancelAnimationFrame(raf);
-    }
-    const onMove = (e: MouseEvent) => {
-      const el = fallbackRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const dx = e.clientX - (r.left + r.width / 2);
-      const dy = e.clientY - (r.top + r.height / 2);
-      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-      rot.set(Math.max(-18, Math.min(18, angle * 0.2)));
-      tx.set(Math.max(-6, Math.min(6, dx * 0.01)));
-      ty.set(Math.max(-4, Math.min(4, dy * 0.01)));
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [fine, reduced, videoError, rot, tx, ty]);
-
-  if (videoError) {
-    return (
-      <motion.div
-        ref={fallbackRef}
-        style={{ rotate: rot, x: tx, y: ty }}
-        className="flex h-full w-full select-none items-center justify-center"
-      >
-        {/* Inline SVG cat — shown when /cat.mp4 is unavailable */}
-        <svg viewBox="0 0 80 72" width="100%" height="100%" aria-label="cat" role="img"
-          style={{ filter: isDay ? 'none' : 'brightness(1.15)' }}>
-          <path d="M8 36 L8 12 L22 24 L40 18 L58 24 L72 12 L72 36 Q72 60 40 66 Q8 60 8 36Z"
-            fill={isDay ? '#c8a87a' : '#8b6f47'} />
-          <ellipse cx="28" cy="34" rx="6" ry="7" fill={isDay ? '#3a2010' : '#1a0c06'} />
-          <ellipse cx="52" cy="34" rx="6" ry="7" fill={isDay ? '#3a2010' : '#1a0c06'} />
-          <ellipse cx="28" cy="34" rx="2.5" ry="4" fill={isDay ? '#7a5c2e' : '#c8a020'} />
-          <ellipse cx="52" cy="34" rx="2.5" ry="4" fill={isDay ? '#7a5c2e' : '#c8a020'} />
-          <path d="M34 44 Q40 48 46 44" stroke={isDay ? '#5a3010' : '#c8a87a'} strokeWidth="1.5" fill="none" strokeLinecap="round" />
-          <circle cx="40" cy="43" r="2" fill={isDay ? '#e0a0a0' : '#f0b0b0'} />
-          <path d="M22 42 L14 40 M22 44 L13 44 M22 46 L14 48" stroke={isDay ? '#8b6f47' : '#c8a87a'} strokeWidth="1" strokeLinecap="round" />
-          <path d="M58 42 L66 40 M58 44 L67 44 M58 46 L66 48" stroke={isDay ? '#8b6f47' : '#c8a87a'} strokeWidth="1" strokeLinecap="round" />
-        </svg>
-      </motion.div>
-    );
-  }
-
-  return (
-    <div className="h-full w-full">
-      <video
-        ref={videoRef}
-        src="/cat.mp4"
-        playsInline
-        muted
-        preload="auto"
-        onLoadedMetadata={() => setVideoLoaded(true)}
-        onError={() => setVideoError(true)}
-        className="h-full w-full object-contain"
-        style={{ display: videoLoaded ? 'block' : 'none' }}
-      />
-      {!videoLoaded && !videoError && (
-        <div className="flex h-full w-full items-center justify-center">
-          <div className="h-3 w-3 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: `${w.bg}88`, borderTopColor: 'transparent' }} />
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // FALLBACK HORIZON — shown when frame sequence is missing / undecodable
