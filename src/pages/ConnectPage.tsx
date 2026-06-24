@@ -49,17 +49,6 @@ export default function ConnectPage() {
   const { d, lang } = useLanguage();
   const c = d.connect;
   const reduced = prefersReducedMotion();
-  const [isDay, setIsDay] = useState(false);
-
-  if (reduced) {
-    return (
-      <PageShell character={social} background="#0a0503">
-        <ReducedJourney c={c} />
-        <StationSection c={c} lang={lang} />
-        <ContactPoster c={c} />
-      </PageShell>
-    );
-  }
 
   return (
     <PageShell character={social} background="#0a0503">
