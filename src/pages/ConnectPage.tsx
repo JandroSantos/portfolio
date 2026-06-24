@@ -49,6 +49,17 @@ export default function ConnectPage() {
   const { d, lang } = useLanguage();
   const c = d.connect;
   const reduced = prefersReducedMotion();
+  const [isDay, setIsDay] = useState(false);
+
+  if (reduced) {
+    return (
+      <PageShell character={social} background="#0a0503">
+        <ReducedJourney c={c} />
+        <StationSection c={c} lang={lang} />
+        <ContactPoster c={c} />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell character={social} background="#0a0503">
@@ -304,29 +315,29 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
             <BeatIntro c={c} />
           </Beat>
 
-          <Beat progress={scrollYProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+          <Beat progress={smoothProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'El origen' : 'The origin'}
             </p>
-            <p className="mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] text-bone">
+            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {c.bio[0]}
             </p>
           </Beat>
 
-          <Beat progress={scrollYProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+          <Beat progress={smoothProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'El recorrido' : 'The journey'}
             </p>
-            <p className="mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] text-bone">
+            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {c.bio[1] ?? c.bio[0]}
             </p>
           </Beat>
 
-          <Beat progress={scrollYProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+          <Beat progress={smoothProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'Ahora mismo' : 'Right now'}
             </p>
-            <p className="mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] text-bone">
+            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {c.now}
             </p>
           </Beat>
@@ -335,7 +346,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
             <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
               {lang === 'es' ? 'Última parada' : 'Last stop'}
             </p>
-            <h2 className="mt-3 font-display text-[clamp(2.4rem,10vw,8rem)] uppercase leading-[0.85] text-bone">
+            <h2 className={`mt-3 font-display text-[clamp(2.4rem,10vw,8rem)] uppercase leading-[0.85] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {lang === 'es' ? 'Estación' : 'Station'}
             </h2>
           </Beat>
@@ -502,7 +513,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
         <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/5">
           <motion.div
             className="h-full origin-left"
-            style={{ scaleX: fillScaleX, background: w.bg }}
+            style={{ scaleX: smoothProgress, background: w.bg }}
           />
         </div>
       </div>
@@ -698,26 +709,28 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
         type="button"
         aria-label="close"
         onClick={onClose}
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className={`absolute inset-0 backdrop-blur-sm transition-colors duration-300 ${isDay ? 'bg-slate-900/40' : 'bg-black/70'}`}
       />
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.97 }}
         animate={{ opacity: 1, y: 0,  scale: 1    }}
         exit={{ opacity: 0,    y: 20,  scale: 0.98 }}
         transition={{ duration: 0.45, ease: EASE }}
-        className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-7 sm:p-9"
+        className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-7 sm:p-9 transition-all duration-300"
         style={{
-          borderColor: hexA(w.bg, 0.4),
-          background: 'linear-gradient(180deg, #140a06, #0a0503)',
-          boxShadow: `0 30px 120px ${hexA(w.deep, 0.6)}`,
+          borderColor: isDay ? 'rgba(15, 23, 42, 0.15)' : hexA(w.bg, 0.4),
+          background: isDay ? 'linear-gradient(180deg, #ffffff, #f8fafc)' : 'linear-gradient(180deg, #140a06, #0a0503)',
+          boxShadow: isDay
+            ? '0 30px 60px -15px rgba(15, 23, 42, 0.15)'
+            : `0 30px 120px ${hexA(w.deep, 0.6)}`,
         }}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'Ficha' : 'File'}
             </p>
-            <h3 className="mt-2 font-display text-3xl uppercase leading-none text-bone">
+            <h3 className={`mt-2 font-display text-3xl uppercase leading-none ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {social.alias}
             </h3>
           </div>
@@ -725,8 +738,8 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
             type="button"
             onClick={onClose}
             aria-label="close"
-            className="rounded-full border p-2 text-bone/70 transition-colors hover:text-bone"
-            style={{ borderColor: hexA(w.bg, 0.3) }}
+            className={`rounded-full border p-2 transition-colors ${isDay ? 'text-slate-500 hover:text-slate-900' : 'text-bone/70 hover:text-bone'}`}
+            style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.15)' : hexA(w.bg, 0.3) }}
           >
             <X className="h-4 w-4" />
           </button>
@@ -735,7 +748,7 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
         <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
           {lang === 'es' ? 'Datos' : 'Facts'}
         </p>
-        <dl className="mt-3 divide-y" style={{ borderColor: hexA(w.bg, 0.15) }}>
+        <dl className="mt-3 divide-y" style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.15) }}>
           {c.facts.map((f) => (
             <div
               key={f.k}
@@ -756,12 +769,57 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
             <div
               key={v.label}
               className="rounded-xl border p-4"
-              style={{ borderColor: hexA(w.bg, 0.2), background: hexA(w.bg, 0.06) }}
+              style={{
+                borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.2),
+                background: isDay ? 'rgba(15, 23, 42, 0.02)' : hexA(w.bg, 0.06),
+              }}
             >
-              <p className="font-display text-lg uppercase leading-none text-bone">{v.label}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-bone/60">{v.note}</p>
+              <p className={`font-display text-lg uppercase leading-none ${isDay ? 'text-slate-900' : 'text-bone'}`}>{v.label}</p>
+              <p className={`mt-1.5 text-sm leading-relaxed ${isDay ? 'text-slate-600' : 'text-bone/60'}`}>{v.note}</p>
             </div>
           ))}
+        </div>
+
+        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+          {lang === 'es' ? 'Contacto' : 'Contact'}
+        </p>
+        <div className="mt-3 space-y-4">
+          <div
+            className="rounded-xl border p-5 transition-colors duration-300"
+            style={{
+              borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.25),
+              background: isDay ? 'rgba(15, 23, 42, 0.02)' : hexA(w.bg, 0.06),
+            }}
+          >
+            <p className={`font-mono text-[10px] uppercase tracking-wider ${isDay ? 'text-slate-500' : 'text-bone/50'}`}>
+              {c.cta.lead}
+            </p>
+            <a
+              href={SOCIALS[0].href}
+              className={`mt-2 block break-words font-display text-2xl uppercase hover:opacity-85 transition-opacity ${isDay ? 'text-slate-900' : 'text-bone'}`}
+            >
+              {SOCIALS[0].handle}
+            </a>
+            <div className={`mt-4 flex items-center gap-2 font-mono text-xs ${isDay ? 'text-slate-600' : 'text-bone/70'}`}>
+              <Mail className="h-4 w-4 text-[#f26d4b]" />
+              <span>{c.cta.button}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-4 pt-2">
+            {SOCIALS.slice(1).map((s) => (
+              <a
+                key={s.label}
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-75 transition-opacity ${isDay ? 'text-slate-700' : 'text-bone/80'}`}
+              >
+                {s.label}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ))}
+          </div>
         </div>
       </motion.div>
     </motion.div>

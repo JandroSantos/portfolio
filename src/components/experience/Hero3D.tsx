@@ -136,10 +136,9 @@ function Scene({ reduced }: { reduced: boolean }) {
       <ModelErrorBoundary fallback={<NeuralNet reduced={reduced} />}>
         <Suspense fallback={<NeuralNet reduced={reduced} />}>
           <NeuralNet reduced={reduced} />
+          <Environment preset="city" />
         </Suspense>
       </ModelErrorBoundary>
-
-      <Environment preset="city" />
 
       <ContactShadows
         position={[0, -1.9, 0]}
