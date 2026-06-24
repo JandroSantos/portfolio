@@ -7,23 +7,43 @@ import {
   AnimatePresence,
   type MotionValue,
 } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
-import { ArrowDownRight, Mail, ExternalLink, Info, X, MapPin } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowRight, Info, Mail, ExternalLink, Moon, Sun, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { CHARACTERS } from '@/data/characters';
 import { SOCIALS } from '@/data/content';
 import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
-import { hexA, prefersReducedMotion, hasFinePointer } from '@/lib/utils';
+import { hexA, prefersReducedMotion } from '@/lib/utils';
 
 const social = CHARACTERS[0];
 const w = social.world;
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-/* Placeholder assets live in public/. They may not exist yet — every
- * consumer below degrades gracefully when they 404. */
-const VIDEO_SRC = '/train.mp4';
-const CAT_BODY_SRC = '/cat-body.png';
-const CAT_HEAD_SRC = '/cat-head.png';
+// ── Frame sequence ────────────────────────────────────────────────────────────
+// Export frames as /public/frames/frame-0001.jpg … frame-NNNN.jpg
+// Set FRAME_COUNT to the actual number of exported frames.
+const FRAME_COUNT = 60;
+const FRAME_SRC = (i: number) =>
+  `/frames/frame-${String(i + 1).padStart(4, '0')}.jpg`;
+
+// Station scene backgrounds — night must match the last canvas frame exactly.
+const DAY_BG = '/station-day.jpg';
+
+// ── Scroll latch ──────────────────────────────────────────────────────────────
+// Accumulated upward scroll (px) required to release the lock.
+const LATCH_THRESHOLD = 180;
+
+// ── Interactive hotspot layout ────────────────────────────────────────────────
+// Percentage positions relative to the fullscreen viewport.
+// Tune to match your station image composition.
+const BOOTH_STYLE  = { left: '51%', top: '28%', width: '17%', height: '50%' };
+const SIGN_STYLE   = { left: '70%', top: '38%', width: '16%', height: '26%' };
+const TOGGLE_STYLE = { right: '3%',  top: '4%' };
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Connect = ReturnType<typeof useLanguage>['d']['connect'];
 
 export default function ConnectPage() {
   const { d, lang } = useLanguage();
@@ -33,122 +53,236 @@ export default function ConnectPage() {
   return (
     <PageShell character={social} background="#0a0503">
       {!reduced ? (
-        <ScrollVideo c={c} lang={lang} />
+        <CanvasJourney c={c} lang={lang} />
       ) : (
-        <ReducedJourney c={c} />
+        <ReducedJourney c={c} lang={lang} />
       )}
-
-      <StationSection c={c} lang={lang} />
-
       <ContactPoster c={c} />
     </PageShell>
   );
 }
 
-type Connect = ReturnType<typeof useLanguage>['d']['connect'];
+// ════════════════════════════════════════════════════════════════════════════
+// CANVAS JOURNEY — frame sequence + latch + interactive station overlay
+// ════════════════════════════════════════════════════════════════════════════
 
-/* ════════════════════════════════════════════════════════════════════
- * SCROLL-SCRUBBED VIDEO JOURNEY
- * ════════════════════════════════════════════════════════════════════ */
-
-function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
+function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [ready, setReady] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const framesRef    = useRef<(HTMLImageElement | null)[]>([]);
+  const lockedRef    = useRef(false);
+  const latchAccum   = useRef(0);
+  const curFrameRef  = useRef(0);
 
+  const [loadPct,      setLoadPct]      = useState(0);
+  const [framesReady,  setFramesReady]  = useState(false);
+  const [framesFailed, setFramesFailed] = useState(false);
+  const [locked,       setLocked]       = useState(false);
+  const [isDay,        setIsDay]        = useState(false);
+  const [panelOpen,    setPanelOpen]    = useState(false);
+
+  // ── Scroll progress ────────────────────────────────────────────────────────
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
   });
 
-  // rAF-throttled scrub: scroll writes a target time, a rAF loop eases the
-  // <video> toward it and only issues a seek when the delta is meaningful.
-  // This mirrors the Mainframe mouse-scrub pattern but is scroll-driven.
-  const targetTime = useRef(0);
-  const lastSeek = useRef(-1);
-
-  useMotionValueEvent(scrollYProgress, 'change', (p) => {
-    const v = videoRef.current;
-    if (!v) return;
-    const dur = v.duration;
-    if (!dur || Number.isNaN(dur) || !Number.isFinite(dur)) return;
-    targetTime.current = Math.min(Math.max(p, 0), 1) * dur;
-  });
-
+  // ── Preload all frames concurrently ───────────────────────────────────────
   useEffect(() => {
-    if (failed) return;
-    let raf = 0;
+    if (FRAME_COUNT === 0) { setFramesFailed(true); return; }
+
+    const imgs: (HTMLImageElement | null)[] = new Array(FRAME_COUNT).fill(null);
+    let settled = 0;
+    let anyOk   = false;
+
     const tick = () => {
-      raf = requestAnimationFrame(tick);
-      const v = videoRef.current;
-      if (!v) return;
-      const dur = v.duration;
-      if (!dur || Number.isNaN(dur) || !Number.isFinite(dur)) return;
-      const want = targetTime.current;
-      // Only seek when the change is perceptible — avoids seek-flooding.
-      if (Math.abs(want - lastSeek.current) > 0.03) {
-        try {
-          v.currentTime = want;
-          lastSeek.current = want;
-        } catch {
-          /* seek can throw before metadata is ready — ignore */
-        }
+      settled++;
+      setLoadPct(settled / FRAME_COUNT);
+      if (settled === FRAME_COUNT) {
+        framesRef.current = imgs;
+        anyOk ? setFramesReady(true) : setFramesFailed(true);
       }
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [failed]);
 
-  const onLoaded = () => {
-    const v = videoRef.current;
-    if (v && v.duration && Number.isFinite(v.duration) && v.duration > 0) {
-      setReady(true);
-      v.pause();
-    } else {
-      setFailed(true);
+    for (let i = 0; i < FRAME_COUNT; i++) {
+      const idx = i;
+      const img = new window.Image();
+      img.onload  = () => { imgs[idx] = img; anyOk = true; tick(); };
+      img.onerror = () => tick();
+      img.src     = FRAME_SRC(i);
     }
-  };
+  }, []);
 
-  // Progress indicator fill.
-  const fillScaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
-  const cueOpacity = useTransform(scrollYProgress, [0, 0.04], [1, 0]);
-  const vignetteO = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0.55, 0.4, 0.4, 0.7]);
+  // ── Canvas draw — object-fit: cover math ──────────────────────────────────
+  const drawFrame = useCallback((idx: number) => {
+    const canvas = canvasRef.current;
+    const img    = framesRef.current[idx];
+    if (!canvas || !img) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const cw = canvas.width, ch = canvas.height;
+    const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+    const sw = img.naturalWidth * scale, sh = img.naturalHeight * scale;
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(img, (cw - sw) / 2, (ch - sh) / 2, sw, sh);
+  }, []);
 
-  const showFallback = failed || !ready;
+  // ── Resize canvas to fill viewport (DPR-aware) ────────────────────────────
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width  = Math.round(window.innerWidth  * dpr);
+      canvas.height = Math.round(window.innerHeight * dpr);
+      if (framesReady) drawFrame(curFrameRef.current);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, [framesReady, drawFrame]);
 
+  // ── Scroll → frame + lock detection ──────────────────────────────────────
+  useMotionValueEvent(scrollYProgress, 'change', (p) => {
+    if (framesReady) {
+      const idx = Math.min(Math.floor(p * FRAME_COUNT), FRAME_COUNT - 1);
+      if (idx !== curFrameRef.current) {
+        curFrameRef.current = idx;
+        drawFrame(idx);
+      }
+    }
+    if (p >= 0.999 && !lockedRef.current) {
+      lockedRef.current = true;
+      setLocked(true);
+      latchAccum.current = 0;
+    } else if (p < 0.995 && lockedRef.current) {
+      lockedRef.current = false;
+      setLocked(false);
+      latchAccum.current = 0;
+    }
+  });
+
+  // ── Wheel latch (must be non-passive to call preventDefault) ─────────────
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      if (!lockedRef.current) return;
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        latchAccum.current += Math.abs(e.deltaY);
+        if (latchAccum.current >= LATCH_THRESHOLD) {
+          lockedRef.current = false;
+          setLocked(false);
+          latchAccum.current = 0;
+        }
+      } else {
+        latchAccum.current = Math.max(0, latchAccum.current - e.deltaY * 0.5);
+      }
+    };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // ── Touch latch ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    let startY = 0;
+    const onTouchStart = (e: TouchEvent) => { startY = e.touches[0].clientY; };
+    const onTouchMove  = (e: TouchEvent) => {
+      if (!lockedRef.current) return;
+      const dy = e.touches[0].clientY - startY;
+      startY = e.touches[0].clientY;
+      if (dy > 0) {
+        latchAccum.current += dy;
+        if (latchAccum.current >= LATCH_THRESHOLD) {
+          lockedRef.current = false;
+          setLocked(false);
+          latchAccum.current = 0;
+        }
+      } else {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove',  onTouchMove,  { passive: false });
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove',  onTouchMove);
+    };
+  }, []);
+
+  // ── Derived motion values ──────────────────────────────────────────────────
+  const fillScaleX     = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
+  const cueOpacity     = useTransform(scrollYProgress, [0, 0.04], [1, 0]);
+  const vignetteO      = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0.55, 0.4, 0.4, 0.6]);
+  const overlayOpacity = useTransform(scrollYProgress, [0.97, 1.0], [0, 1]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div ref={containerRef} className="relative" style={{ height: '500vh' }}>
       <div className="sticky top-0 h-[100vh] w-full overflow-hidden">
-        {/* The scrubbed video */}
-        <video
-          ref={videoRef}
-          src={VIDEO_SRC}
-          muted
-          playsInline
-          preload="auto"
-          onLoadedMetadata={onLoaded}
-          onError={() => setFailed(true)}
-          className="absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: showFallback ? 0 : 1, transition: 'opacity 0.6s ease' }}
+
+        {/* Dark fallback — visible until frames load or on failure */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `
+              radial-gradient(120% 90% at 20% 110%, ${hexA(w.bg, 0.55)} 0%, transparent 55%),
+              radial-gradient(100% 80% at 85% -10%, ${hexA(w.deep, 0.5)} 0%, transparent 50%),
+              linear-gradient(180deg, #1a0c06 0%, #0a0503 55%, #060302 100%)`,
+          }}
+        >
+          {framesFailed && <FallbackHorizon />}
+        </div>
+
+        {/* Canvas frame player */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0"
+          style={{
+            width: '100vw',
+            height: '100vh',
+            opacity: framesReady ? 1 : 0,
+            transition: 'opacity 0.5s ease',
+          }}
         />
 
-        {/* Tasteful coral fallback when the video is missing/undecodable */}
+        {/* Day-mode overlay — cross-fades over the canvas when toggled */}
+        <img
+          src={DAY_BG}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+          style={{ opacity: isDay ? 1 : 0, transition: 'opacity 1.5s ease' }}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+        />
+
+        {/* Loading screen */}
         <AnimatePresence>
-          {showFallback && (
+          {!framesReady && !framesFailed && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              key="loader"
+              initial={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0"
-              style={{
-                background: `
-                  radial-gradient(120% 90% at 20% 110%, ${hexA(w.bg, 0.55)} 0%, transparent 55%),
-                  radial-gradient(100% 80% at 85% -10%, ${hexA(w.deep, 0.5)} 0%, transparent 50%),
-                  linear-gradient(180deg, #1a0c06 0%, #0a0503 55%, #060302 100%)`,
-              }}
+              transition={{ duration: 0.6 }}
+              className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4"
+              style={{ background: 'rgba(10,5,3,0.92)' }}
             >
-              <FallbackHorizon />
+              <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+                {lang === 'es' ? 'Cargando trayecto' : 'Loading journey'}
+              </p>
+              <div className="h-px w-48 overflow-hidden bg-white/10">
+                <div
+                  className="h-full origin-left"
+                  style={{
+                    transform: `scaleX(${loadPct})`,
+                    background: w.bg,
+                    transition: 'transform 0.12s ease',
+                  }}
+                />
+              </div>
+              <p className="font-mono text-[10px] text-bone/30">
+                {Math.round(loadPct * 100)} %
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -165,7 +299,7 @@ function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
         />
 
         {/* Text beats */}
-        <div className="absolute inset-0">
+        <div className="pointer-events-none absolute inset-0">
           <Beat progress={scrollYProgress} range={[0.0, 0.04, 0.16, 0.21]} align="center">
             <BeatIntro c={c} />
           </Beat>
@@ -197,21 +331,158 @@ function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
             </p>
           </Beat>
 
-          <Beat progress={scrollYProgress} range={[0.94, 0.97, 1.0, 1.0]} align="center">
+          <Beat progress={scrollYProgress} range={[0.87, 0.92, 0.97, 0.99]} align="center">
             <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
               {lang === 'es' ? 'Última parada' : 'Last stop'}
             </p>
             <h2 className="mt-3 font-display text-[clamp(2.4rem,10vw,8rem)] uppercase leading-[0.85] text-bone">
               {lang === 'es' ? 'Estación' : 'Station'}
             </h2>
-            <p className="mt-4 inline-flex items-center gap-2 font-mono text-xs text-bone/60">
-              {lang === 'es' ? 'sigue bajando' : 'keep scrolling'}
-              <ArrowDownRight className="h-4 w-4" />
-            </p>
           </Beat>
         </div>
 
-        {/* Scroll cue at the very start */}
+        {/* Interactive station overlay */}
+        <motion.div
+          className="absolute inset-0"
+          aria-hidden={!locked}
+          style={{
+            opacity: overlayOpacity,
+            pointerEvents: locked ? 'auto' : 'none',
+          }}
+        >
+          {/* Info booth hotspot */}
+          <button
+            type="button"
+            onClick={() => setPanelOpen(true)}
+            className="group absolute"
+            style={BOOTH_STYLE}
+            aria-label={lang === 'es' ? 'Caseta de información' : 'Information booth'}
+          >
+            <span
+              aria-hidden
+              className="absolute inset-0 rounded-xl opacity-0 transition-all duration-300 group-hover:opacity-100"
+              style={{
+                background: hexA(w.bg, 0.1),
+                boxShadow: `inset 0 0 0 1px ${hexA(w.bg, 0.5)}, 0 0 40px ${hexA(w.bg, 0.2)}`,
+              }}
+            />
+            <span
+              aria-hidden
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-1 font-mono text-[8px] uppercase tracking-[0.3em] opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
+              style={{
+                borderColor: hexA(w.bg, 0.5),
+                background: 'rgba(0,0,0,0.55)',
+                color: w.bg,
+              }}
+            >
+              <Info className="h-2.5 w-2.5" />
+              {lang === 'es' ? 'Información' : 'Info'}
+            </span>
+          </button>
+
+          {/* Day / Night toggle */}
+          <button
+            type="button"
+            onClick={() => setIsDay((v) => !v)}
+            className="absolute flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.3em] backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{
+              ...TOGGLE_STYLE,
+              borderColor: hexA(isDay ? '#7a4010' : w.bg, 0.5),
+              background: isDay ? 'rgba(255,240,200,0.25)' : 'rgba(0,0,0,0.4)',
+              color: isDay ? '#3a1409' : 'rgba(255,255,255,0.85)',
+            }}
+            aria-label={
+              isDay
+                ? (lang === 'es' ? 'Cambiar a noche' : 'Switch to night')
+                : (lang === 'es' ? 'Cambiar a día'   : 'Switch to day')
+            }
+          >
+            {isDay
+              ? <Moon className="h-3.5 w-3.5" />
+              : <Sun  className="h-3.5 w-3.5" style={{ color: w.bg }} />
+            }
+            {isDay
+              ? (lang === 'es' ? 'Noche' : 'Night')
+              : (lang === 'es' ? 'Día'   : 'Day'  )
+            }
+          </button>
+
+          {/* Project sign — wooden plaque with hanging rope */}
+          <Link
+            to="/projects"
+            className="group absolute flex flex-col items-center"
+            style={SIGN_STYLE}
+            aria-label={lang === 'es' ? 'Ir a proyectos' : 'Go to projects'}
+          >
+            <div
+              aria-hidden
+              className="mx-auto opacity-60"
+              style={{
+                width: 2,
+                height: '12%',
+                minHeight: 12,
+                background: isDay ? '#8B6914' : '#b89442',
+              }}
+            />
+            <div
+              className="w-full rounded px-3 py-2 text-center transition-transform duration-300 group-hover:rotate-1 group-hover:scale-105"
+              style={{
+                background: isDay
+                  ? 'linear-gradient(160deg, #d4a843 0%, #a07830 100%)'
+                  : 'linear-gradient(160deg, #4a3010 0%, #2e1c08 100%)',
+                boxShadow: `0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 ${isDay ? 'rgba(255,255,255,0.25)' : 'rgba(255,200,100,0.08)'}`,
+                border: `2px solid ${isDay ? '#8B6914' : '#6b4820'}`,
+              }}
+            >
+              <p
+                className="font-mono leading-none"
+                style={{
+                  fontSize: 'clamp(0.45rem, 0.7vw, 0.6rem)',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  color: isDay ? '#3a1409' : '#c4a44e',
+                }}
+              >
+                {lang === 'es' ? 'Siguiente parada' : 'Next stop'}
+              </p>
+              <p
+                className="mt-1 font-display uppercase leading-none"
+                style={{
+                  fontSize: 'clamp(0.65rem, 1.2vw, 0.9rem)',
+                  color: isDay ? '#5a2010' : '#e8d5a0',
+                }}
+              >
+                /projects
+              </p>
+              <ArrowRight
+                className="mx-auto mt-1"
+                style={{
+                  width: 'clamp(0.55rem, 0.9vw, 0.75rem)',
+                  height: 'clamp(0.55rem, 0.9vw, 0.75rem)',
+                  color: isDay ? '#7a3010' : '#c4a44e',
+                }}
+              />
+            </div>
+          </Link>
+
+          {/* Latch release hint */}
+          <AnimatePresence>
+            {locked && (
+              <motion.p
+                key="latch-hint"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ delay: 0.8, duration: 0.5 }}
+                className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 select-none whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.35em] text-bone/35"
+              >
+                ↑ {lang === 'es' ? 'sube para desandar el camino' : 'scroll up to retrace'}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Scroll cue */}
         <motion.div
           style={{ opacity: cueOpacity }}
           className="pointer-events-none absolute bottom-10 left-1/2 -translate-x-1/2 text-center"
@@ -227,7 +498,7 @@ function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
           />
         </motion.div>
 
-        {/* Thin horizontal progress indicator */}
+        {/* Thin progress bar */}
         <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/5">
           <motion.div
             className="h-full origin-left"
@@ -235,25 +506,31 @@ function ScrollVideo({ c, lang }: { c: Connect; lang: string }) {
           />
         </div>
       </div>
+
+      {/* Info panel modal — lives outside the sticky div so z-index works */}
+      <AnimatePresence>
+        {panelOpen && (
+          <InfoPanel c={c} lang={lang} onClose={() => setPanelOpen(false)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-/** Layered horizon used inside the fallback so the page never looks empty. */
+// ════════════════════════════════════════════════════════════════════════════
+// FALLBACK HORIZON — shown when frame sequence is missing / undecodable
+// ════════════════════════════════════════════════════════════════════════════
+
 function FallbackHorizon() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      {/* sun */}
       <div
         className="absolute left-1/2 top-[52%] h-[34vmin] w-[34vmin] -translate-x-1/2 rounded-full blur-[2px]"
-        style={{ background: `radial-gradient(circle, ${hexA(w.panel, 0.9)} 0%, ${hexA(w.bg, 0.4)} 45%, transparent 70%)` }}
+        style={{
+          background: `radial-gradient(circle, ${hexA(w.panel, 0.9)} 0%, ${hexA(w.bg, 0.4)} 45%, transparent 70%)`,
+        }}
       />
-      {/* horizon line */}
-      <div
-        className="absolute left-0 right-0 top-[62%] h-px"
-        style={{ background: hexA(w.bg, 0.4) }}
-      />
-      {/* passing rails — perspective streaks */}
+      <div className="absolute left-0 right-0 top-[62%] h-px" style={{ background: hexA(w.bg, 0.4) }} />
       <div
         className="absolute inset-x-0 bottom-0 top-[62%]"
         style={{
@@ -265,6 +542,10 @@ function FallbackHorizon() {
     </div>
   );
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// BEAT INTRO — first text overlay
+// ════════════════════════════════════════════════════════════════════════════
 
 function BeatIntro({ c }: { c: Connect }) {
   return (
@@ -291,7 +572,10 @@ function BeatIntro({ c }: { c: Connect }) {
   );
 }
 
-/** A single scroll-windowed text beat that fades in then out. */
+// ════════════════════════════════════════════════════════════════════════════
+// BEAT — scroll-windowed text that fades in then out
+// ════════════════════════════════════════════════════════════════════════════
+
 function Beat({
   progress,
   range,
@@ -305,12 +589,14 @@ function Beat({
 }) {
   const [inA, inB, outA, outB] = range;
   const opacity = useTransform(progress, [inA, inB, outA, outB], [0, 1, 1, 0]);
-  const y = useTransform(progress, [inA, outB], [40, -40]);
-  const drift = align === 'right' ? 28 : align === 'left' ? -28 : 0;
-  const x = useTransform(progress, [inA, inB], [drift, 0]);
+  const y       = useTransform(progress, [inA, outB], [40, -40]);
+  const drift   = align === 'right' ? 28 : align === 'left' ? -28 : 0;
+  const x       = useTransform(progress, [inA, inB], [drift, 0]);
 
   const justify =
-    align === 'left' ? 'justify-start text-left' : align === 'right' ? 'justify-end text-right' : 'justify-center text-center';
+    align === 'left'   ? 'justify-start text-left'  :
+    align === 'right'  ? 'justify-end text-right'   :
+                         'justify-center text-center';
 
   return (
     <motion.div
@@ -322,9 +608,14 @@ function Beat({
   );
 }
 
-/** Reduced-motion: no scrub. Static poster + all beats stacked normally. */
-function ReducedJourney({ c }: { c: Connect }) {
-  const beats = [c.intro, c.bio[0], c.bio[1], c.now].filter(Boolean) as string[];
+// ════════════════════════════════════════════════════════════════════════════
+// REDUCED JOURNEY — static layout for prefers-reduced-motion
+// ════════════════════════════════════════════════════════════════════════════
+
+function ReducedJourney({ c, lang }: { c: Connect; lang: string }) {
+  const [panelOpen, setPanelOpen] = useState(false);
+  const beats = [c.bio[0], c.bio[1], c.now].filter(Boolean) as string[];
+
   return (
     <section className="relative overflow-hidden px-6 py-28 sm:px-12 sm:py-36">
       <div
@@ -356,225 +647,40 @@ function ReducedJourney({ c }: { c: Connect }) {
             </p>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
 
-/* ════════════════════════════════════════════════════════════════════
- * THE STATION — cat follower + info booth
- * ════════════════════════════════════════════════════════════════════ */
-
-function StationSection({ c, lang }: { c: Connect; lang: string }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <section
-      className="relative overflow-hidden px-6 pb-28 pt-24 sm:px-12 sm:pt-32"
-      style={{
-        background: `radial-gradient(130% 90% at 50% 120%, ${hexA(w.bg, 0.22)} 0%, transparent 60%), linear-gradient(180deg, #060302 0%, #0d0705 100%)`,
-      }}
-    >
-      <div className="mx-auto max-w-6xl">
-        <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
-          {lang === 'es' ? '— Estación final' : '— Final station'}
-        </p>
-        <h2 className="mt-3 max-w-2xl font-display text-[clamp(2rem,7vw,5rem)] uppercase leading-[0.9] text-bone">
-          {lang === 'es' ? 'Bienvenido a la parada' : 'Welcome to the platform'}
-        </h2>
-
-        {/* Platform: cat + info booth */}
-        <div className="relative mt-16 grid items-end gap-10 md:grid-cols-2">
-          <CatFollower />
-
-          <InfoBooth lang={lang} onOpen={() => setOpen(true)} />
+        <div className="mt-16 flex flex-wrap gap-4">
+          <button
+            type="button"
+            onClick={() => setPanelOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border px-5 py-3 font-mono text-xs uppercase tracking-wider transition-opacity hover:opacity-80"
+            style={{ borderColor: hexA(w.bg, 0.4), color: w.bg, background: hexA(w.bg, 0.08) }}
+          >
+            <Info className="h-3.5 w-3.5" />
+            {lang === 'es' ? 'Abrir ficha' : 'Open file'}
+          </button>
+          <Link
+            to="/projects"
+            className="inline-flex items-center gap-2 rounded-xl border px-5 py-3 font-mono text-xs uppercase tracking-wider text-bone/70 transition-opacity hover:opacity-80"
+            style={{ borderColor: hexA(w.bg, 0.25), background: hexA(w.bg, 0.04) }}
+          >
+            <ArrowRight className="h-3.5 w-3.5" />
+            /projects
+          </Link>
         </div>
-
-        {/* Platform floor line */}
-        <div
-          className="mt-2 h-px w-full"
-          style={{ background: `linear-gradient(90deg, transparent, ${hexA(w.bg, 0.5)}, transparent)` }}
-        />
       </div>
 
-      {/* Info panel */}
       <AnimatePresence>
-        {open && <InfoPanel c={c} lang={lang} onClose={() => setOpen(false)} />}
+        {panelOpen && <InfoPanel c={c} lang={lang} onClose={() => setPanelOpen(false)} />}
       </AnimatePresence>
     </section>
   );
 }
 
-function CatFollower() {
-  const fine = hasFinePointer();
-  const reduced = prefersReducedMotion();
-  const headRef = useRef<HTMLDivElement>(null);
-  const [imgOk, setImgOk] = useState({ body: true, head: true });
-
-  // Spring-smoothed head rotation + tiny translate.
-  const rot = useSpring(0, { stiffness: 120, damping: 14, mass: 0.5 });
-  const tx = useSpring(0, { stiffness: 120, damping: 16 });
-  const ty = useSpring(0, { stiffness: 120, damping: 16 });
-
-  useEffect(() => {
-    if (reduced) return;
-
-    // Touch / coarse pointer: gentle auto-sway instead of mouse tracking.
-    if (!fine) {
-      let raf = 0;
-      const start = performance.now();
-      const loop = (t: number) => {
-        raf = requestAnimationFrame(loop);
-        const s = Math.sin((t - start) / 900);
-        rot.set(s * 10);
-        tx.set(s * 4);
-      };
-      raf = requestAnimationFrame(loop);
-      return () => cancelAnimationFrame(raf);
-    }
-
-    const onMove = (e: MouseEvent) => {
-      const el = headRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-      // Clamp the tilt to ±18deg around the cat's resting "up" pose.
-      const clamped = Math.max(-18, Math.min(18, angle * 0.2));
-      rot.set(clamped);
-      tx.set(Math.max(-6, Math.min(6, dx * 0.01)));
-      ty.set(Math.max(-4, Math.min(4, dy * 0.01)));
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [fine, reduced, rot, tx, ty]);
-
-  return (
-    <div className="relative flex h-64 items-end justify-center md:justify-start">
-      {/* Platform pedestal */}
-      <div
-        className="absolute bottom-0 left-1/2 h-3 w-48 -translate-x-1/2 rounded-full blur-md md:left-24"
-        style={{ background: hexA(w.bg, 0.3) }}
-      />
-
-      <div className="relative" style={{ width: 180, height: 200 }}>
-        {/* Body */}
-        {imgOk.body ? (
-          <img
-            src={CAT_BODY_SRC}
-            alt=""
-            draggable={false}
-            onError={() => setImgOk((s) => ({ ...s, body: false }))}
-            className="absolute bottom-0 left-1/2 w-32 -translate-x-1/2 select-none object-contain"
-          />
-        ) : (
-          <SvgCatBody />
-        )}
-
-        {/* Head — rotates toward the cursor */}
-        <motion.div
-          ref={headRef}
-          style={{ rotate: rot, x: tx, y: ty }}
-          className="absolute left-1/2 top-4 z-10 -translate-x-1/2"
-        >
-          {imgOk.head ? (
-            <img
-              src={CAT_HEAD_SRC}
-              alt="cat"
-              draggable={false}
-              onError={() => setImgOk((s) => ({ ...s, head: false }))}
-              className="w-20 select-none object-contain"
-            />
-          ) : (
-            <SvgCatHead />
-          )}
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-/* Pure-SVG cat fallbacks so the scene works without any image assets. */
-function SvgCatHead() {
-  return (
-    <svg width="80" height="72" viewBox="0 0 80 72" aria-label="cat" role="img">
-      <polygon points="12,4 30,26 6,30" fill={w.deep} />
-      <polygon points="68,4 50,26 74,30" fill={w.deep} />
-      <ellipse cx="40" cy="42" rx="30" ry="26" fill={w.bg} />
-      <circle cx="29" cy="40" r="4" fill={w.ink} />
-      <circle cx="51" cy="40" r="4" fill={w.ink} />
-      <path d="M36 50 q4 4 8 0" stroke={w.ink} strokeWidth="2" fill="none" strokeLinecap="round" />
-      <line x1="8" y1="46" x2="24" y2="48" stroke={w.ink} strokeWidth="1.5" opacity="0.6" />
-      <line x1="72" y1="46" x2="56" y2="48" stroke={w.ink} strokeWidth="1.5" opacity="0.6" />
-    </svg>
-  );
-}
-
-function SvgCatBody() {
-  return (
-    <svg
-      width="128"
-      height="150"
-      viewBox="0 0 128 150"
-      className="absolute bottom-0 left-1/2 -translate-x-1/2"
-      aria-hidden
-    >
-      <ellipse cx="64" cy="120" rx="46" ry="30" fill={w.panel} />
-      <path d="M64 60 C40 60 36 110 40 130 L88 130 C92 110 88 60 64 60 Z" fill={w.bg} />
-      <path d="M104 128 q22 -6 14 -34" stroke={w.deep} strokeWidth="10" fill="none" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function InfoBooth({ lang, onOpen }: { lang: string; onOpen: () => void }) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onOpen}
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-60px' }}
-      transition={{ duration: 0.7, ease: EASE }}
-      whileHover={{ y: -4 }}
-      className="group relative w-full overflow-hidden rounded-2xl border p-7 text-left backdrop-blur-sm"
-      style={{
-        borderColor: hexA(w.bg, 0.4),
-        background: `linear-gradient(160deg, ${hexA(w.bg, 0.16)}, ${hexA(w.deep, 0.1)})`,
-        boxShadow: `0 0 60px ${hexA(w.bg, 0.18)}`,
-      }}
-      data-cursor="hover"
-    >
-      {/* glow pulse */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-2xl transition-opacity group-hover:opacity-80"
-        style={{ background: hexA(w.bg, 0.4), opacity: 0.5 }}
-      />
-      <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
-        <MapPin className="h-3.5 w-3.5" />
-        {lang === 'es' ? 'Punto de información' : 'Information booth'}
-      </span>
-      <h3 className="mt-3 font-display text-[clamp(1.6rem,4vw,2.6rem)] uppercase leading-none text-bone">
-        {lang === 'es' ? '¿Quién es Jandro?' : 'Who is Jandro?'}
-      </h3>
-      <p className="mt-3 max-w-sm text-sm leading-relaxed text-bone/60">
-        {lang === 'es'
-          ? 'Pulsa para abrir la ficha: datos, valores y cómo trabajo.'
-          : 'Tap to open the file: facts, values and how I work.'}
-      </p>
-      <span className="mt-5 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wider" style={{ color: w.bg }}>
-        <Info className="h-4 w-4" />
-        {lang === 'es' ? 'Abrir ficha' : 'Open file'}
-      </span>
-    </motion.button>
-  );
-}
+// ════════════════════════════════════════════════════════════════════════════
+// INFO PANEL MODAL
+// ════════════════════════════════════════════════════════════════════════════
 
 function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: () => void }) {
-  // Close on Escape.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -596,8 +702,8 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
       />
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0,  scale: 1    }}
+        exit={{ opacity: 0,    y: 20,  scale: 0.98 }}
         transition={{ duration: 0.45, ease: EASE }}
         className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-7 sm:p-9"
         style={{
@@ -626,20 +732,22 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
           </button>
         </div>
 
-        {/* Facts */}
         <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
           {lang === 'es' ? 'Datos' : 'Facts'}
         </p>
         <dl className="mt-3 divide-y" style={{ borderColor: hexA(w.bg, 0.15) }}>
           {c.facts.map((f) => (
-            <div key={f.k} className="flex items-baseline justify-between gap-6 py-3" style={{ borderColor: hexA(w.bg, 0.15) }}>
+            <div
+              key={f.k}
+              className="flex items-baseline justify-between gap-6 py-3"
+              style={{ borderColor: hexA(w.bg, 0.15) }}
+            >
               <dt className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone/50">{f.k}</dt>
               <dd className="text-right text-sm font-medium text-bone">{f.v}</dd>
             </div>
           ))}
         </dl>
 
-        {/* Values */}
         <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
           {lang === 'es' ? 'Cómo trabajo' : 'How I work'}
         </p>
@@ -660,9 +768,9 @@ function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: ()
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
- * CONTACT POSTER
- * ════════════════════════════════════════════════════════════════════ */
+// ════════════════════════════════════════════════════════════════════════════
+// CONTACT POSTER — below the canvas section, accessible after unlatch
+// ════════════════════════════════════════════════════════════════════════════
 
 function ContactPoster({ c }: { c: Connect }) {
   return (
