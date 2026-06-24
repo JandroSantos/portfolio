@@ -247,24 +247,39 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
           }}
         />
 
-        {/* Night station — fades in when scroll locks; hidden during journey */}
-        <img
+        {/* Night station — fixed fullscreen, fades in as journey ends */}
+        <motion.img
           src={NIGHT_BG}
           alt=""
           aria-hidden
           draggable={false}
-          className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
-          style={{ opacity: locked ? 1 : 0, transition: 'opacity 0.8s ease' }}
+          className="pointer-events-none select-none object-cover"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 45,
+            opacity: overlayOpacity,
+          }}
         />
 
-        {/* Day station — cross-fades on top of night when toggle is active */}
+        {/* Day station — fixed, cross-fades on top when toggle is active */}
         <img
           src={DAY_BG}
           alt=""
           aria-hidden
           draggable={false}
-          className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
-          style={{ opacity: locked && isDay ? 1 : 0, transition: 'opacity 1.5s ease' }}
+          className="pointer-events-none select-none object-cover"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 46,
+            opacity: locked && isDay ? 1 : 0,
+            transition: 'opacity 1.5s ease',
+          }}
         />
 
         {/* Loading screen */}
@@ -352,15 +367,17 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
           </Beat>
         </div>
 
-        {/* Interactive station overlay */}
+        {/* Interactive station overlay — fixed fullscreen above station images */}
         <motion.div
-          className="absolute inset-0"
           aria-hidden={!locked}
           onMouseMove={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             setMouseX(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)));
           }}
           style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 47,
             opacity: overlayOpacity,
             pointerEvents: locked ? 'auto' : 'none',
           }}
