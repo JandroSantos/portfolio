@@ -42,7 +42,6 @@ const LATCH_THRESHOLD = 180;
 // Tune to match your station image composition.
 const BOOTH_STYLE  = { left: '51%', top: '28%', width: '17%', height: '50%' };
 const SIGN_STYLE   = { left: '70%', top: '38%', width: '16%', height: '26%' };
-const TOGGLE_STYLE = { right: '1.25rem', top: '68px' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 
