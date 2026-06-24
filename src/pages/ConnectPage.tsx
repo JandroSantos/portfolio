@@ -521,7 +521,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
       {/* Info panel modal — lives outside the sticky div so z-index works */}
       <AnimatePresence>
         {panelOpen && (
-          <InfoPanel c={c} lang={lang} onClose={() => setPanelOpen(false)} />
+          <InfoPanel c={c} lang={lang} isDay={isDay} onClose={() => setPanelOpen(false)} />
         )}
       </AnimatePresence>
     </div>
@@ -681,7 +681,7 @@ function ReducedJourney({ c, lang }: { c: Connect; lang: string }) {
       </div>
 
       <AnimatePresence>
-        {panelOpen && <InfoPanel c={c} lang={lang} onClose={() => setPanelOpen(false)} />}
+        {panelOpen && <InfoPanel c={c} lang={lang} isDay={false} onClose={() => setPanelOpen(false)} />}
       </AnimatePresence>
     </section>
   );
@@ -691,7 +691,7 @@ function ReducedJourney({ c, lang }: { c: Connect; lang: string }) {
 // INFO PANEL MODAL
 // ════════════════════════════════════════════════════════════════════════════
 
-function InfoPanel({ c, lang, onClose }: { c: Connect; lang: string; onClose: () => void }) {
+function InfoPanel({ c, lang, isDay, onClose }: { c: Connect; lang: string; isDay: boolean; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
