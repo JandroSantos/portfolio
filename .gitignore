@@ -25,3 +25,8 @@ dist-ssr
 
 # Source images uploaded to root (copied into src/assets/characters/)
 Image *.png
+
+# Python bytecache
+__pycache__/
+*.pyc
+*.pyo

@@ -2,13 +2,14 @@ import {
   motion,
   useScroll,
   useTransform,
-  useSpring,
   useMotionValueEvent,
+  useSpring,
   AnimatePresence,
   type MotionValue,
 } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
-import { ArrowDownRight, Mail, ExternalLink, Info, X, MapPin, Sun, Moon } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowRight, Info, Mail, ExternalLink, Moon, Sun, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { CHARACTERS } from '@/data/characters';
 import { SOCIALS } from '@/data/content';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -19,376 +20,295 @@ const social = CHARACTERS[0];
 const w = social.world;
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-/* Placeholder assets live in public/. They may not exist yet — every
- * consumer below degrades gracefully when they 404. */
-const VIDEO_SRC = '/train.mp4';
+// ── Frame sequence ────────────────────────────────────────────────────────────
+// Export frames as /public/frames/frame-0001.jpg … frame-NNNN.jpg
+// Set FRAME_COUNT to the actual number of exported frames.
+const FRAME_COUNT: number = 60;
+const FRAME_SRC = (i: number) =>
+  `/frames/frame-${String(i + 1).padStart(4, '0')}.jpg`;
+
+// Station scene backgrounds — served via Supabase CDN.
+// Night version appears when the scroll locks; day swaps in via the toggle.
+const NIGHT_BG = 'https://ttbejmwipmulrygesdgg.supabase.co/storage/v1/object/public/Photos/tren/estacion_noche.png';
+const DAY_BG   = 'https://ttbejmwipmulrygesdgg.supabase.co/storage/v1/object/public/Photos/tren/estacion_dia.png';
+
+// ── Scroll latch ──────────────────────────────────────────────────────────────
+// Accumulated upward scroll (px) required to release the lock.
+const LATCH_THRESHOLD = 180;
+
+// ── Interactive hotspot layout ────────────────────────────────────────────────
+// Percentage positions relative to the fullscreen viewport.
+// Tune to match your station image composition.
+const BOOTH_STYLE  = { left: '51%', top: '28%', width: '17%', height: '50%' };
+const SIGN_STYLE   = { left: '70%', top: '38%', width: '16%', height: '26%' };
+const TOGGLE_STYLE = { right: '3%',  top: '4%' };
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Connect = ReturnType<typeof useLanguage>['d']['connect'];
 
 export default function ConnectPage() {
   const { d, lang } = useLanguage();
   const c = d.connect;
   const reduced = prefersReducedMotion();
-  const [isDay, setIsDay] = useState(false);
-
-  if (reduced) {
-    return (
-      <PageShell character={social} background="#0a0503">
-        <ReducedJourney c={c} />
-        <StationSection c={c} lang={lang} />
-        <ContactPoster c={c} />
-      </PageShell>
-    );
-  }
 
   return (
-    <PageShell character={social} background={isDay ? '#eef2f7' : '#0a0503'}>
-      <ScrollVideo c={c} lang={lang} isDay={isDay} setIsDay={setIsDay} />
+    <PageShell character={social} background="#0a0503">
+      {!reduced ? (
+        <CanvasJourney c={c} lang={lang} />
+      ) : (
+        <ReducedJourney c={c} lang={lang} />
+      )}
+      <ContactPoster c={c} />
     </PageShell>
   );
 }
 
-type Connect = ReturnType<typeof useLanguage>['d']['connect'];
+// ════════════════════════════════════════════════════════════════════════════
+// CANVAS JOURNEY — frame sequence + latch + interactive station overlay
+// ════════════════════════════════════════════════════════════════════════════
 
-/* ════════════════════════════════════════════════════════════════════
- * SCROLL-SCRUBBED VIDEO JOURNEY
- * ════════════════════════════════════════════════════════════════════ */
-
-// Helper to limit concurrency of async tasks
-async function limitConcurrency<T>(
-  concurrency: number,
-  items: T[],
-  fn: (item: T, index: number) => Promise<void>
-) {
-  const promises: Promise<void>[] = [];
-  const active = new Set<Promise<void>>();
-  for (let i = 0; i < items.length; i++) {
-    const p = fn(items[i], i).then(() => {
-      active.delete(p);
-    });
-    promises.push(p);
-    active.add(p);
-    if (active.size >= concurrency) {
-      await Promise.race(active);
-    }
-  }
-  await Promise.all(promises);
-}
-
-function ScrollVideo({
-  c,
-  lang,
-  isDay,
-  setIsDay,
-}: {
-  c: Connect;
-  lang: string;
-  isDay: boolean;
-  setIsDay: (v: boolean) => void;
-}) {
+function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [imagesLoaded, setImagesLoaded] = useState(0);
-  const [isReady, setIsReady] = useState(false);
-  const [openInfo, setOpenInfo] = useState(false);
-  const [showOverlays, setShowOverlays] = useState(false);
-  const [isLocked, setIsLocked] = useState(false);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const framesRef    = useRef<(HTMLImageElement | null)[]>([]);
+  const lockedRef    = useRef(false);
+  const latchAccum   = useRef(0);
+  const curFrameRef  = useRef(0);
 
-  const frameCount = 660;
-  const lastDrawnIndex = useRef(-1);
-  const imagesRef = useRef<HTMLImageElement[]>([]);
-  const scrollAccumulator = useRef(0);
-  const touchStartY = useRef(0);
-  const reduced = prefersReducedMotion();
+  const [loadPct,      setLoadPct]      = useState(0);
+  const [framesReady,  setFramesReady]  = useState(false);
+  const [framesFailed, setFramesFailed] = useState(false);
+  const [locked,       setLocked]       = useState(false);
+  const [isDay,        setIsDay]        = useState(false);
+  const [panelOpen,    setPanelOpen]    = useState(false);
+  const [mouseX,       setMouseX]       = useState(0.5);
 
+  // ── Scroll progress ────────────────────────────────────────────────────────
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
   });
 
-  const smoothProgress = useSpring(scrollYProgress, { stiffness: 100, damping: 30, mass: 1 });
+  // ── Preload all frames concurrently ───────────────────────────────────────
+  useEffect(() => {
+    if (FRAME_COUNT === 0) { setFramesFailed(true); return; }
 
-  // Progress indicators and vignettes scaled to the smooth scroll progress
-  const cueOpacity = useTransform(smoothProgress, [0, 0.04], [1, 0]);
-  const vignetteO = useTransform(smoothProgress, [0, 0.1, 0.85, 1], [0.55, 0.4, 0.4, 0.7]);
-  
-  // Fade in the static train end image (night) at the end of the journey (progress 0.95 to 0.98)
-  const staticImageOpacity = useTransform(smoothProgress, [0.95, 0.98], [0, 1]);
-  const overlaysOpacity = useTransform(smoothProgress, [0.95, 0.98], [0, 1]);
+    const imgs: (HTMLImageElement | null)[] = new Array(FRAME_COUNT).fill(null);
+    let settled = 0;
+    let anyOk   = false;
 
-  const drawFrame = (index: number) => {
+    const tick = () => {
+      settled++;
+      setLoadPct(settled / FRAME_COUNT);
+      if (settled === FRAME_COUNT) {
+        framesRef.current = imgs;
+        anyOk ? setFramesReady(true) : setFramesFailed(true);
+      }
+    };
+
+    for (let i = 0; i < FRAME_COUNT; i++) {
+      const idx = i;
+      const img = new window.Image();
+      img.onload  = () => { imgs[idx] = img; anyOk = true; tick(); };
+      img.onerror = () => tick();
+      img.src     = FRAME_SRC(i);
+    }
+  }, []);
+
+  // ── Canvas draw — object-fit: cover math ──────────────────────────────────
+  const drawFrame = useCallback((idx: number) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const img    = framesRef.current[idx];
+    if (!canvas || !img) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const cw = canvas.width, ch = canvas.height;
+    const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+    const sw = img.naturalWidth * scale, sh = img.naturalHeight * scale;
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(img, (cw - sw) / 2, (ch - sh) / 2, sw, sh);
+  }, []);
 
-    const img = imagesRef.current[index];
-    if (!img) return;
-
-    if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    lastDrawnIndex.current = index;
-  };
-
+  // ── Resize canvas to fill viewport (DPR-aware) ────────────────────────────
   useEffect(() => {
-    let active = true;
-    let loadedCount = 0;
-    const indices = Array.from({ length: frameCount }, (_, i) => i + 1);
-
-    const loadFrame = (i: number, index: number): Promise<void> => {
-      return new Promise<void>((resolve) => {
-        const img = new Image();
-        img.src = `/frames/frame_${String(i).padStart(4, '0')}.jpg`;
-        img.onload = () => {
-          if (active) {
-            imagesRef.current[index] = img;
-            loadedCount++;
-            setImagesLoaded(loadedCount);
-            if (index === 0) {
-              drawFrame(0);
-            }
-          }
-          resolve();
-        };
-        img.onerror = () => {
-          if (active) {
-            loadedCount++;
-            setImagesLoaded(loadedCount);
-          }
-          resolve();
-        };
-      });
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width  = Math.round(window.innerWidth  * dpr);
+      canvas.height = Math.round(window.innerHeight * dpr);
+      if (framesReady) drawFrame(curFrameRef.current);
     };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, [framesReady, drawFrame]);
 
-    const startPreload = async () => {
-      await Promise.all([loadFrame(1, 0), loadFrame(660, 659)]);
-      if (active) {
-        drawFrame(0);
+  // ── Scroll → frame + lock detection ──────────────────────────────────────
+  useMotionValueEvent(scrollYProgress, 'change', (p) => {
+    if (framesReady) {
+      const idx = Math.min(Math.floor(p * FRAME_COUNT), FRAME_COUNT - 1);
+      if (idx !== curFrameRef.current) {
+        curFrameRef.current = idx;
+        drawFrame(idx);
       }
+    }
+    if (p >= 0.999 && !lockedRef.current) {
+      lockedRef.current = true;
+      setLocked(true);
+      latchAccum.current = 0;
+    } else if (p < 0.995 && lockedRef.current) {
+      lockedRef.current = false;
+      setLocked(false);
+      latchAccum.current = 0;
+    }
+  });
 
-      const remainingIndices = indices.filter((i) => i !== 1 && i !== 660);
-      await limitConcurrency(16, remainingIndices, async (i) => {
-        await loadFrame(i, i - 1);
-      });
-
-      if (active) {
-        setIsReady(true);
+  // ── Wheel latch (must be non-passive to call preventDefault) ─────────────
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      if (!lockedRef.current) return;
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        latchAccum.current += Math.abs(e.deltaY);
+        if (latchAccum.current >= LATCH_THRESHOLD) {
+          lockedRef.current = false;
+          setLocked(false);
+          latchAccum.current = 0;
+        }
+      } else {
+        latchAccum.current = Math.max(0, latchAccum.current - e.deltaY * 0.5);
       }
     };
+    window.addEventListener('wheel', onWheel, { passive: false });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, []);
 
-    startPreload();
-
+  // ── Touch latch ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    let startY = 0;
+    const onTouchStart = (e: TouchEvent) => { startY = e.touches[0].clientY; };
+    const onTouchMove  = (e: TouchEvent) => {
+      if (!lockedRef.current) return;
+      const dy = e.touches[0].clientY - startY;
+      startY = e.touches[0].clientY;
+      if (dy > 0) {
+        latchAccum.current += dy;
+        if (latchAccum.current >= LATCH_THRESHOLD) {
+          lockedRef.current = false;
+          setLocked(false);
+          latchAccum.current = 0;
+        }
+      } else {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove',  onTouchMove,  { passive: false });
     return () => {
-      active = false;
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove',  onTouchMove);
     };
   }, []);
 
-  useMotionValueEvent(smoothProgress, 'change', (p) => {
-    const index = Math.max(0, Math.min(frameCount - 1, Math.floor(p * frameCount)));
-    if (index !== lastDrawnIndex.current) {
-      drawFrame(index);
-    }
-  });
+  // ── Derived motion values ──────────────────────────────────────────────────
+  const cueOpacity     = useTransform(scrollYProgress, [0, 0.04], [1, 0]);
+  const vignetteO      = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0.55, 0.4, 0.4, 0.6]);
+  const overlayOpacity = useTransform(scrollYProgress, [0.97, 1.0], [0, 1]);
 
-  useEffect(() => {
-    if (isReady) {
-      const p = smoothProgress.get();
-      const index = Math.max(0, Math.min(frameCount - 1, Math.floor(p * frameCount)));
-      drawFrame(index);
-    }
-  }, [isReady]);
-
-  useMotionValueEvent(smoothProgress, 'change', (p) => {
-    if (p >= 0.95 && !showOverlays) {
-      setShowOverlays(true);
-    } else if (p < 0.95 && showOverlays) {
-      setShowOverlays(false);
-    }
-  });
-
-  // Detect scroll hitting bottom boundary to activate lock
-  useEffect(() => {
-    if (reduced) return;
-
-    const handleScroll = () => {
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      if (window.scrollY >= maxScroll - 2) {
-        if (!isLocked) {
-          setIsLocked(true);
-          scrollAccumulator.current = 0;
-        }
-      } else {
-        if (isLocked) {
-          setIsLocked(false);
-        }
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isLocked, reduced]);
-
-  // Intercept events when scroll is locked at the platform
-  useEffect(() => {
-    if (reduced || !isLocked) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-
-      if (e.deltaY > 0) {
-        scrollAccumulator.current = 0;
-      } else if (e.deltaY < 0) {
-        scrollAccumulator.current += Math.abs(e.deltaY);
-        
-        if (scrollAccumulator.current >= 250) {
-          setIsLocked(false);
-          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-          window.scrollTo({
-            top: maxScroll - 20,
-            behavior: 'auto'
-          });
-        }
-      }
-    };
-
-    const handleTouchStart = (e: TouchEvent) => {
-      touchStartY.current = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      const deltaY = touchStartY.current - e.touches[0].clientY;
-      if (deltaY > 0) {
-        scrollAccumulator.current = 0;
-      } else if (deltaY < 0) {
-        scrollAccumulator.current += Math.abs(deltaY);
-        if (scrollAccumulator.current >= 150) {
-          setIsLocked(false);
-          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-          window.scrollTo({
-            top: maxScroll - 20,
-            behavior: 'auto'
-          });
-        }
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' || e.key === 'PageUp') {
-        e.preventDefault();
-        scrollAccumulator.current += 60;
-        if (scrollAccumulator.current >= 200) {
-          setIsLocked(false);
-          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-          window.scrollTo(0, maxScroll - 20);
-        }
-      } else if (e.key === 'ArrowDown' || e.key === 'PageDown') {
-        e.preventDefault();
-        scrollAccumulator.current = 0;
-      }
-    };
-
-    window.addEventListener('wheel', handleWheel, { passive: false });
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('keydown', handleKeyDown, { passive: false });
-
-    return () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isLocked, reduced]);
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div ref={containerRef} className="relative" style={{ height: '1000vh' }}>
-      {/* Fixed background for the entire page scroll */}
-      <div className="fixed inset-0 w-full h-[100vh] overflow-hidden bg-[#0a0503] z-0 pointer-events-none">
-        <style dangerouslySetInnerHTML={{__html: `
-          .cover-container {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            will-change: transform, width, height;
-          }
-          @media (min-aspect-ratio: 16/9) {
-            .cover-container {
-              width: 100vw;
-              height: 56.25vw;
-            }
-          }
-          @media (max-aspect-ratio: 16/9) {
-            .cover-container {
-              width: 177.78vh;
-              height: 100vh;
-            }
-          }
-        `}} />
-        
-        {/* Cover scaling container */}
-        <div className="cover-container w-full h-full">
-          {/* Canvas container representing the journey */}
-          <canvas
-            ref={canvasRef}
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ opacity: isReady ? 1 : 0, transition: 'opacity 0.5s ease' }}
-          />
+    <div ref={containerRef} className="relative" style={{ height: '500vh' }}>
+      <div className="sticky top-0 h-[100vh] w-full overflow-hidden">
 
-          {/* High-res static image overlay (Night) that covers the canvas when the train stops */}
-          {isReady && (
-            <motion.img
-              src="/station_end.jpg"
-              alt="Estación"
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ opacity: staticImageOpacity, pointerEvents: 'none' }}
-            />
-          )}
-
-          {/* High-res static image overlay (Day) that crossfades over the night background */}
-          {isReady && (
-            <motion.img
-              src="/station_day.jpg"
-              alt="Estación de Día"
-              className="absolute inset-0 h-full w-full object-cover"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: isDay ? 1 : 0 }}
-              transition={{ duration: 0.8, ease: EASE }}
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
+        {/* Dark fallback — visible until frames load or on failure */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `
+              radial-gradient(120% 90% at 20% 110%, ${hexA(w.bg, 0.55)} 0%, transparent 55%),
+              radial-gradient(100% 80% at 85% -10%, ${hexA(w.deep, 0.5)} 0%, transparent 50%),
+              linear-gradient(180deg, #1a0c06 0%, #0a0503 55%, #060302 100%)`,
+          }}
+        >
+          {framesFailed && <FallbackHorizon />}
         </div>
-      </div>
 
-      <div className="sticky top-0 h-[100vh] w-full overflow-hidden z-10 pointer-events-none">
-        {/* Loading Overlay */}
+        {/* Canvas frame player */}
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0"
+          style={{
+            width: '100vw',
+            height: '100vh',
+            opacity: framesReady ? 1 : 0,
+            transition: 'opacity 0.5s ease',
+          }}
+        />
+
+        {/* Night station — fixed fullscreen, fades in as journey ends */}
+        <motion.img
+          src={NIGHT_BG}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="pointer-events-none select-none object-cover"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 45,
+            opacity: overlayOpacity,
+          }}
+        />
+
+        {/* Day station — fixed, cross-fades on top when toggle is active */}
+        <img
+          src={DAY_BG}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="pointer-events-none select-none object-cover"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            width: '100vw',
+            height: '100vh',
+            zIndex: 46,
+            opacity: locked && isDay ? 1 : 0,
+            transition: 'opacity 1.5s ease',
+          }}
+        />
+
+        {/* Loading screen */}
         <AnimatePresence>
-          {!isReady && (
+          {!framesReady && !framesFailed && (
             <motion.div
+              key="loader"
               initial={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: 'easeInOut' }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0503] z-50 pointer-events-auto"
+              transition={{ duration: 0.6 }}
+              className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4"
+              style={{ background: 'rgba(10,5,3,0.92)' }}
             >
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center"
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.5em] mb-4 text-[#f26d4b]">
-                  {lang === 'es' ? 'Cargando viaje...' : 'Loading journey...'}
-                </p>
-                <div className="h-1 w-48 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-[#f26d4b]"
-                    style={{ width: `${(imagesLoaded / frameCount) * 100}%` }}
-                  />
-                </div>
-              </motion.div>
+              <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+                {lang === 'es' ? 'Cargando trayecto' : 'Loading journey'}
+              </p>
+              <div className="h-px w-48 overflow-hidden bg-white/10">
+                <div
+                  className="h-full origin-left"
+                  style={{
+                    transform: `scaleX(${loadPct})`,
+                    background: w.bg,
+                    transition: 'transform 0.12s ease',
+                  }}
+                />
+              </div>
+              <p className="font-mono text-[10px] text-bone/30">
+                {Math.round(loadPct * 100)} %
+              </p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -404,13 +324,13 @@ function ScrollVideo({
           }}
         />
 
-        {/* Text beats — using the full scroll progress ranges */}
-        <div className="absolute inset-0 pointer-events-none">
-          <Beat progress={smoothProgress} range={[0.0, 0.04, 0.16, 0.21]} align="center">
+        {/* Text beats */}
+        <div className="pointer-events-none absolute inset-0">
+          <Beat progress={scrollYProgress} range={[0.0, 0.04, 0.16, 0.21]} align="center">
             <BeatIntro c={c} />
           </Beat>
 
-          <Beat progress={smoothProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
+          <Beat progress={scrollYProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
             <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'El origen' : 'The origin'}
             </p>
@@ -419,7 +339,7 @@ function ScrollVideo({
             </p>
           </Beat>
 
-          <Beat progress={smoothProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
+          <Beat progress={scrollYProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
             <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'El recorrido' : 'The journey'}
             </p>
@@ -428,7 +348,7 @@ function ScrollVideo({
             </p>
           </Beat>
 
-          <Beat progress={smoothProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
+          <Beat progress={scrollYProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
             <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'Ahora mismo' : 'Right now'}
             </p>
@@ -437,21 +357,172 @@ function ScrollVideo({
             </p>
           </Beat>
 
-          <Beat progress={smoothProgress} range={[0.91, 0.93, 0.95, 0.97]} align="center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+          <Beat progress={scrollYProgress} range={[0.87, 0.92, 0.97, 0.99]} align="center">
+            <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
               {lang === 'es' ? 'Última parada' : 'Last stop'}
             </p>
             <h2 className={`mt-3 font-display text-[clamp(2.4rem,10vw,8rem)] uppercase leading-[0.85] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {lang === 'es' ? 'Estación' : 'Station'}
             </h2>
-            <p className={`mt-4 inline-flex items-center gap-2 font-mono text-xs ${isDay ? 'text-slate-500' : 'text-bone/60'}`}>
-              {lang === 'es' ? 'sigue bajando' : 'keep scrolling'}
-              <ArrowDownRight className="h-4 w-4" />
-            </p>
           </Beat>
         </div>
 
-        {/* Scroll cue at the very start */}
+        {/* Interactive station overlay — fixed fullscreen above station images */}
+        <motion.div
+          aria-hidden={!locked}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setMouseX(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)));
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 47,
+            opacity: overlayOpacity,
+            pointerEvents: locked ? 'auto' : 'none',
+          }}
+        >
+          {/* Info booth hotspot */}
+          <button
+            type="button"
+            onClick={() => setPanelOpen(true)}
+            className="group absolute"
+            style={BOOTH_STYLE}
+            aria-label={lang === 'es' ? 'Caseta de información' : 'Information booth'}
+          >
+            <span
+              aria-hidden
+              className="absolute inset-0 rounded-xl opacity-0 transition-all duration-300 group-hover:opacity-100"
+              style={{
+                background: hexA(w.bg, 0.1),
+                boxShadow: `inset 0 0 0 1px ${hexA(w.bg, 0.5)}, 0 0 40px ${hexA(w.bg, 0.2)}`,
+              }}
+            />
+            <span
+              aria-hidden
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-1 font-mono text-[8px] uppercase tracking-[0.3em] opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
+              style={{
+                borderColor: hexA(w.bg, 0.5),
+                background: 'rgba(0,0,0,0.55)',
+                color: w.bg,
+              }}
+            >
+              <Info className="h-2.5 w-2.5" />
+              {lang === 'es' ? 'Información' : 'Info'}
+            </span>
+          </button>
+
+          {/* Day / Night toggle */}
+          <button
+            type="button"
+            onClick={() => setIsDay((v) => !v)}
+            className="absolute flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.3em] backdrop-blur-sm transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{
+              ...TOGGLE_STYLE,
+              borderColor: hexA(isDay ? '#7a4010' : w.bg, 0.5),
+              background: isDay ? 'rgba(255,240,200,0.25)' : 'rgba(0,0,0,0.4)',
+              color: isDay ? '#3a1409' : 'rgba(255,255,255,0.85)',
+            }}
+            aria-label={
+              isDay
+                ? (lang === 'es' ? 'Cambiar a noche' : 'Switch to night')
+                : (lang === 'es' ? 'Cambiar a día'   : 'Switch to day')
+            }
+          >
+            {isDay
+              ? <Moon className="h-3.5 w-3.5" />
+              : <Sun  className="h-3.5 w-3.5" style={{ color: w.bg }} />
+            }
+            {isDay
+              ? (lang === 'es' ? 'Noche' : 'Night')
+              : (lang === 'es' ? 'Día'   : 'Day'  )
+            }
+          </button>
+
+          {/* Project sign — wooden plaque with hanging rope */}
+          <Link
+            to="/projects"
+            className="group absolute flex flex-col items-center"
+            style={SIGN_STYLE}
+            aria-label={lang === 'es' ? 'Ir a proyectos' : 'Go to projects'}
+          >
+            <div
+              aria-hidden
+              className="mx-auto opacity-60"
+              style={{
+                width: 2,
+                height: '12%',
+                minHeight: 12,
+                background: isDay ? '#8B6914' : '#b89442',
+              }}
+            />
+            <div
+              className="w-full rounded px-3 py-2 text-center transition-transform duration-300 group-hover:rotate-1 group-hover:scale-105"
+              style={{
+                background: isDay
+                  ? 'linear-gradient(160deg, #d4a843 0%, #a07830 100%)'
+                  : 'linear-gradient(160deg, #4a3010 0%, #2e1c08 100%)',
+                boxShadow: `0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 ${isDay ? 'rgba(255,255,255,0.25)' : 'rgba(255,200,100,0.08)'}`,
+                border: `2px solid ${isDay ? '#8B6914' : '#6b4820'}`,
+              }}
+            >
+              <p
+                className="font-mono leading-none"
+                style={{
+                  fontSize: 'clamp(0.45rem, 0.7vw, 0.6rem)',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  color: isDay ? '#3a1409' : '#c4a44e',
+                }}
+              >
+                {lang === 'es' ? 'Siguiente parada' : 'Next stop'}
+              </p>
+              <p
+                className="mt-1 font-display uppercase leading-none"
+                style={{
+                  fontSize: 'clamp(0.65rem, 1.2vw, 0.9rem)',
+                  color: isDay ? '#5a2010' : '#e8d5a0',
+                }}
+              >
+                /projects
+              </p>
+              <ArrowRight
+                className="mx-auto mt-1"
+                style={{
+                  width: 'clamp(0.55rem, 0.9vw, 0.75rem)',
+                  height: 'clamp(0.55rem, 0.9vw, 0.75rem)',
+                  color: isDay ? '#7a3010' : '#c4a44e',
+                }}
+              />
+            </div>
+          </Link>
+
+          {/* Cat video — scrubbed by horizontal mouse position */}
+          <div
+            className="pointer-events-none absolute"
+            style={{ left: '46%', top: '64%', width: '8%', height: '14%' }}
+          >
+            <CatVideoFollower mouseX={mouseX} isDay={isDay} />
+          </div>
+
+          {/* Latch release hint */}
+          <AnimatePresence>
+            {locked && (
+              <motion.p
+                key="latch-hint"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 4 }}
+                transition={{ delay: 0.8, duration: 0.5 }}
+                className="pointer-events-none absolute bottom-5 left-1/2 -translate-x-1/2 select-none whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.35em] text-bone/35"
+              >
+                ↑ {lang === 'es' ? 'sube para desandar el camino' : 'scroll up to retrace'}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Scroll cue */}
         <motion.div
           style={{ opacity: cueOpacity }}
           className="pointer-events-none absolute bottom-10 left-1/2 -translate-x-1/2 text-center"
@@ -467,66 +538,136 @@ function ScrollVideo({
           />
         </motion.div>
 
-        {/* Thin horizontal progress indicator */}
+        {/* Thin progress bar */}
         <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/5">
           <motion.div
             className="h-full origin-left"
-            style={{ scaleX: smoothProgress, background: w.bg }}
+            style={{ scaleX: scrollYProgress, background: w.bg }}
           />
         </div>
       </div>
 
-      {/* Floating Day/Night Toggle (visible when overlays are active) */}
-      {showOverlays && (
-        <div className="fixed top-6 right-6 z-30 pointer-events-auto">
-          <DayNightToggle isDay={isDay} setIsDay={setIsDay} lang={lang} />
-        </div>
-      )}
-
-      {/* Interactive overlays at the end of the journey */}
-      <motion.div
-        style={{ opacity: overlaysOpacity }}
-        className={`fixed inset-0 z-20 ${showOverlays ? 'pointer-events-auto' : 'pointer-events-none'}`}
-      >
-        {showOverlays && (
-          <div className="cover-container w-full h-full pointer-events-auto">
-            <InteractiveStation
-              isDay={isDay}
-              setIsDay={setIsDay}
-              lang={lang}
-              onOpenInfo={() => setOpenInfo(true)}
-            />
-          </div>
-        )}
-      </motion.div>
-
-      {/* Info panel popup */}
+      {/* Info panel modal — lives outside the sticky div so z-index works */}
       <AnimatePresence>
-        {openInfo && (
-          <InfoPanel
-            c={c}
-            lang={lang}
-            onClose={() => setOpenInfo(false)}
-            isDay={isDay}
-          />
+        {panelOpen && (
+          <InfoPanel c={c} lang={lang} isDay={isDay} onClose={() => setPanelOpen(false)} />
         )}
       </AnimatePresence>
     </div>
   );
 }
 
-/** Layered horizon used inside the fallback so the page never looks empty. */
+// ════════════════════════════════════════════════════════════════════════════
+// CAT VIDEO FOLLOWER — video scrubbed by horizontal mouse position
+// ════════════════════════════════════════════════════════════════════════════
+
+function CatVideoFollower({ mouseX, isDay }: { mouseX: number; isDay: boolean }) {
+  const videoRef    = useRef<HTMLVideoElement>(null);
+  const fallbackRef = useRef<HTMLDivElement>(null);
+  const [videoError,  setVideoError]  = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+
+  const fine    = hasFinePointer();
+  const reduced = prefersReducedMotion();
+
+  const rot = useSpring(0, { stiffness: 120, damping: 14, mass: 0.5 });
+  const tx  = useSpring(0, { stiffness: 120, damping: 16 });
+  const ty  = useSpring(0, { stiffness: 120, damping: 16 });
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || videoError || !videoLoaded) return;
+    const duration = video.duration || 1;
+    video.currentTime = mouseX * duration;
+  }, [mouseX, videoError, videoLoaded]);
+
+  useEffect(() => {
+    if (reduced || !videoError) return;
+    if (!fine) {
+      let raf = 0;
+      const start = performance.now();
+      const loop = (t: number) => {
+        raf = requestAnimationFrame(loop);
+        const s = Math.sin((t - start) / 900);
+        rot.set(s * 10);
+        tx.set(s * 4);
+      };
+      raf = requestAnimationFrame(loop);
+      return () => cancelAnimationFrame(raf);
+    }
+    const onMove = (e: MouseEvent) => {
+      const el = fallbackRef.current;
+      if (!el) return;
+      const r  = el.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width  / 2);
+      const dy = e.clientY - (r.top  + r.height / 2);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      rot.set(Math.max(-18, Math.min(18, angle * 0.2)));
+      tx.set(Math.max(-6, Math.min(6, dx * 0.01)));
+      ty.set(Math.max(-4, Math.min(4, dy * 0.01)));
+    };
+    window.addEventListener('mousemove', onMove);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [fine, reduced, videoError, rot, tx, ty]);
+
+  if (videoError) {
+    return (
+      <motion.div
+        ref={fallbackRef}
+        style={{
+          rotate: rot,
+          x: tx,
+          y: ty,
+          filter: isDay ? 'none' : 'brightness(1.1) contrast(1.1)',
+        }}
+        className="h-full w-full select-none"
+      >
+        <img
+          src="/cat_fallback.jpg"
+          alt="Gato"
+          draggable={false}
+          className="h-full w-full object-contain"
+        />
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full">
+      <video
+        ref={videoRef}
+        src="/cat.mp4"
+        playsInline
+        muted
+        preload="auto"
+        onLoadedMetadata={() => setVideoLoaded(true)}
+        onError={() => setVideoError(true)}
+        className="h-full w-full object-contain"
+        style={{ display: videoLoaded ? 'block' : 'none' }}
+      />
+      {!videoLoaded && !videoError && (
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: `${w.bg}88`, borderTopColor: 'transparent' }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// FALLBACK HORIZON — shown when frame sequence is missing / undecodable
+// ════════════════════════════════════════════════════════════════════════════
+
 function FallbackHorizon() {
   return (
     <div className="absolute inset-0 overflow-hidden">
       <div
         className="absolute left-1/2 top-[52%] h-[34vmin] w-[34vmin] -translate-x-1/2 rounded-full blur-[2px]"
-        style={{ background: `radial-gradient(circle, ${hexA(w.panel, 0.9)} 0%, ${hexA(w.bg, 0.4)} 45%, transparent 70%)` }}
+        style={{
+          background: `radial-gradient(circle, ${hexA(w.panel, 0.9)} 0%, ${hexA(w.bg, 0.4)} 45%, transparent 70%)`,
+        }}
       />
-      <div
-        className="absolute left-0 right-0 top-[62%] h-px"
-        style={{ background: hexA(w.bg, 0.4) }}
-      />
+      <div className="absolute left-0 right-0 top-[62%] h-px" style={{ background: hexA(w.bg, 0.4) }} />
       <div
         className="absolute inset-x-0 bottom-0 top-[62%]"
         style={{
@@ -538,6 +679,10 @@ function FallbackHorizon() {
     </div>
   );
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// BEAT INTRO — first text overlay
+// ════════════════════════════════════════════════════════════════════════════
 
 function BeatIntro({ c }: { c: Connect }) {
   return (
@@ -564,7 +709,10 @@ function BeatIntro({ c }: { c: Connect }) {
   );
 }
 
-/** A single scroll-windowed text beat that fades in then out. */
+// ════════════════════════════════════════════════════════════════════════════
+// BEAT — scroll-windowed text that fades in then out
+// ════════════════════════════════════════════════════════════════════════════
+
 function Beat({
   progress,
   range,
@@ -578,12 +726,14 @@ function Beat({
 }) {
   const [inA, inB, outA, outB] = range;
   const opacity = useTransform(progress, [inA, inB, outA, outB], [0, 1, 1, 0]);
-  const y = useTransform(progress, [inA, outB], [40, -40]);
-  const drift = align === 'right' ? 28 : align === 'left' ? -28 : 0;
-  const x = useTransform(progress, [inA, inB], [drift, 0]);
+  const y       = useTransform(progress, [inA, outB], [40, -40]);
+  const drift   = align === 'right' ? 28 : align === 'left' ? -28 : 0;
+  const x       = useTransform(progress, [inA, inB], [drift, 0]);
 
   const justify =
-    align === 'left' ? 'justify-start text-left' : align === 'right' ? 'justify-end text-right' : 'justify-center text-center';
+    align === 'left'   ? 'justify-start text-left'  :
+    align === 'right'  ? 'justify-end text-right'   :
+                         'justify-center text-center';
 
   return (
     <motion.div
@@ -595,9 +745,14 @@ function Beat({
   );
 }
 
-/** Reduced-motion: no scrub. Static poster + all beats stacked normally. */
-function ReducedJourney({ c }: { c: Connect }) {
-  const beats = [c.intro, c.bio[0], c.bio[1], c.now].filter(Boolean) as string[];
+// ════════════════════════════════════════════════════════════════════════════
+// REDUCED JOURNEY — static layout for prefers-reduced-motion
+// ════════════════════════════════════════════════════════════════════════════
+
+function ReducedJourney({ c, lang }: { c: Connect; lang: string }) {
+  const [panelOpen, setPanelOpen] = useState(false);
+  const beats = [c.bio[0], c.bio[1], c.now].filter(Boolean) as string[];
+
   return (
     <section className="relative overflow-hidden px-6 py-28 sm:px-12 sm:py-36">
       <div
@@ -629,213 +784,40 @@ function ReducedJourney({ c }: { c: Connect }) {
             </p>
           ))}
         </div>
+
+        <div className="mt-16 flex flex-wrap gap-4">
+          <button
+            type="button"
+            onClick={() => setPanelOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl border px-5 py-3 font-mono text-xs uppercase tracking-wider transition-opacity hover:opacity-80"
+            style={{ borderColor: hexA(w.bg, 0.4), color: w.bg, background: hexA(w.bg, 0.08) }}
+          >
+            <Info className="h-3.5 w-3.5" />
+            {lang === 'es' ? 'Abrir ficha' : 'Open file'}
+          </button>
+          <Link
+            to="/projects"
+            className="inline-flex items-center gap-2 rounded-xl border px-5 py-3 font-mono text-xs uppercase tracking-wider text-bone/70 transition-opacity hover:opacity-80"
+            style={{ borderColor: hexA(w.bg, 0.25), background: hexA(w.bg, 0.04) }}
+          >
+            <ArrowRight className="h-3.5 w-3.5" />
+            /projects
+          </Link>
+        </div>
       </div>
+
+      <AnimatePresence>
+        {panelOpen && <InfoPanel c={c} lang={lang} isDay={false} onClose={() => setPanelOpen(false)} />}
+      </AnimatePresence>
     </section>
   );
 }
 
-function DayNightToggle({
-  isDay,
-  setIsDay,
-  lang,
-}: {
-  isDay: boolean;
-  setIsDay: (v: boolean) => void;
-  lang: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => setIsDay(!isDay)}
-      className="group relative flex h-10 w-20 cursor-pointer items-center rounded-full p-1 transition-colors duration-500 ease-in-out focus:outline-none"
-      style={{
-        background: isDay ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.08)',
-        border: isDay ? '1px solid rgba(15, 23, 42, 0.15)' : '1px solid rgba(242, 109, 75, 0.3)',
-        boxShadow: isDay ? 'none' : `0 0 15px ${hexA(w.bg, 0.2)}`,
-      }}
-      aria-label={lang === 'es' ? 'Cambiar modo de día/noche' : 'Toggle day/night mode'}
-    >
-      <motion.div
-        className="z-10 flex h-8 w-8 items-center justify-center rounded-full shadow-md"
-        animate={{ x: isDay ? 40 : 0 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        style={{
-          background: isDay ? '#f26d4b' : '#1e1b4b',
-        }}
-      >
-        {isDay ? (
-          <Sun className="h-4 w-4 text-white" />
-        ) : (
-          <Moon className="h-4 w-4 text-amber-300" />
-        )}
-      </motion.div>
+// ════════════════════════════════════════════════════════════════════════════
+// INFO PANEL MODAL
+// ════════════════════════════════════════════════════════════════════════════
 
-      <div className="absolute inset-0 flex items-center justify-between px-2.5 pointer-events-none text-slate-400">
-        <Moon className={`h-4 w-4 transition-opacity duration-300 ${isDay ? 'opacity-40 text-slate-600' : 'opacity-0'}`} />
-        <Sun className={`h-4 w-4 transition-opacity duration-300 ${isDay ? 'opacity-0' : 'opacity-40 text-amber-500/50'}`} />
-      </div>
-    </button>
-  );
-}
-
-function InteractiveStation({
-  isDay,
-  setIsDay,
-  lang,
-  onOpenInfo,
-}: {
-  isDay: boolean;
-  setIsDay: (v: boolean) => void;
-  lang: string;
-  onOpenInfo: () => void;
-}) {
-  return (
-    <div
-      className="w-full h-full relative pointer-events-auto overflow-hidden"
-    >
-      <button
-        type="button"
-        onClick={onOpenInfo}
-        className="absolute cursor-pointer border border-dashed border-transparent hover:border-white/40 rounded-lg transition-colors group z-10"
-        style={{
-          left: '54%',
-          top: '36%',
-          width: '18%',
-          height: '35%',
-        }}
-        aria-label={lang === 'es' ? 'Abrir información de Jandro' : 'Open Jandro info'}
-        data-cursor="hover"
-      >
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/85 text-white font-mono text-[10px] uppercase tracking-wider py-1.5 px-3 rounded border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-20">
-          {lang === 'es' ? 'Ficha de Información (Pulsar)' : 'Information File (Click)'}
-        </div>
-      </button>
-
-      <a
-        href="/projects"
-        className="absolute flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 group z-10 select-none"
-        style={{
-          left: '76%',
-          top: '45%',
-          width: '16%',
-          height: '18%',
-          border: isDay ? '2px solid #475569' : '2px solid #f26d4b',
-          background: isDay 
-            ? 'linear-gradient(135deg, #ffffff, #f1f5f9)' 
-            : 'rgba(242, 109, 75, 0.05)',
-          boxShadow: isDay
-            ? '0 6px 12px -2px rgba(15, 23, 42, 0.12), 0 3px 6px -3px rgba(15, 23, 42, 0.08)'
-            : '0 0 20px rgba(242, 109, 75, 0.25), inset 0 0 10px rgba(242, 109, 75, 0.15)',
-        }}
-        data-cursor="hover"
-      >
-        {/* Hanging Chains */}
-        <div 
-          className="absolute top-0 left-[20%] w-[2px] h-[30px] -translate-y-full transition-colors duration-300"
-          style={{ backgroundColor: isDay ? '#475569' : '#f26d4b' }}
-        />
-        <div 
-          className="absolute top-0 right-[20%] w-[2px] h-[30px] -translate-y-full transition-colors duration-300"
-          style={{ backgroundColor: isDay ? '#475569' : '#f26d4b' }}
-        />
-        
-        <span 
-          className={`font-mono text-[9px] uppercase tracking-[0.2em] font-semibold ${isDay ? 'text-slate-500' : 'text-[#f26d4b]'}`}
-          style={{
-            textShadow: isDay ? 'none' : '0 0 8px rgba(242, 109, 75, 0.6)',
-          }}
-        >
-          {lang === 'es' ? 'Siguiente Parada' : 'Next Stop'}
-        </span>
-        <span className={`font-display text-sm md:text-base uppercase tracking-wider font-bold group-hover:scale-105 transition-transform mt-1.5 ${isDay ? 'text-slate-800 group-hover:text-[#d04f2f]' : 'text-bone group-hover:text-[#ff8d6f]'}`}>
-          {lang === 'es' ? 'Proyectos ➔' : 'Projects ➔'}
-        </span>
-      </a>
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════════════
- * THE STATION — cat follower + info booth
- * ════════════════════════════════════════════════════════════════════ */
-
-function StationSection({ c, lang }: { c: Connect; lang: string }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <section
-      className="relative overflow-hidden px-6 pb-28 pt-24 sm:px-12 sm:pt-32"
-      style={{
-        background: `radial-gradient(130% 90% at 50% 120%, ${hexA(w.bg, 0.22)} 0%, transparent 60%), linear-gradient(180deg, #060302 0%, #0d0705 100%)`,
-      }}
-    >
-      <div className="mx-auto max-w-6xl">
-        <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
-          {lang === 'es' ? '— Estación final' : '— Final station'}
-        </p>
-        <h2 className="mt-3 max-w-2xl font-display text-[clamp(2rem,7vw,5rem)] uppercase leading-[0.9] text-bone">
-          {lang === 'es' ? 'Bienvenido a la parada' : 'Welcome to the platform'}
-        </h2>
-
-        <div className="relative mt-16 flex justify-center">
-          <div className="w-full max-w-lg">
-            <InfoBooth lang={lang} onOpen={() => setOpen(true)} />
-          </div>
-        </div>
-
-        <div
-          className="mt-16 h-px w-full"
-          style={{ background: `linear-gradient(90deg, transparent, ${hexA(w.bg, 0.5)}, transparent)` }}
-        />
-      </div>
-    </section>
-  );
-}
-
-function InfoBooth({ lang, onOpen }: { lang: string; onOpen: () => void }) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onOpen}
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-60px' }}
-      transition={{ duration: 0.7, ease: EASE }}
-      whileHover={{ y: -4 }}
-      className="group relative w-full overflow-hidden rounded-2xl border p-7 text-left backdrop-blur-sm"
-      style={{
-        borderColor: hexA(w.bg, 0.4),
-        background: `linear-gradient(160deg, ${hexA(w.bg, 0.16)}, ${hexA(w.deep, 0.1)})`,
-        boxShadow: `0 0 60px ${hexA(w.bg, 0.18)}`,
-      }}
-      data-cursor="hover"
-    >
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-2xl transition-opacity group-hover:opacity-80"
-        style={{ background: hexA(w.bg, 0.4), opacity: 0.5 }}
-      />
-      <span className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
-        <MapPin className="h-3.5 w-3.5" />
-        {lang === 'es' ? 'Punto de información' : 'Information booth'}
-      </span>
-      <h3 className="mt-3 font-display text-[clamp(1.6rem,4vw,2.6rem)] uppercase leading-none text-bone">
-        {lang === 'es' ? '¿Quién es Jandro?' : 'Who is Jandro?'}
-      </h3>
-      <p className="mt-3 max-w-sm text-sm leading-relaxed text-bone/60">
-        {lang === 'es'
-          ? 'Pulsa para abrir la ficha: datos, valores y cómo trabajo.'
-          : 'Tap to open the file: facts, values and how I work.'}
-      </p>
-      <span className="mt-5 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wider" style={{ color: w.bg }}>
-        <Info className="h-4 w-4" />
-        {lang === 'es' ? 'Abrir ficha' : 'Open file'}
-      </span>
-    </motion.button>
-  );
-}
-
-function InfoPanel({ c, lang, onClose, isDay }: { c: Connect; lang: string; onClose: () => void; isDay: boolean }) {
+function InfoPanel({ c, lang, isDay, onClose }: { c: Connect; lang: string; isDay: boolean; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -857,8 +839,8 @@ function InfoPanel({ c, lang, onClose, isDay }: { c: Connect; lang: string; onCl
       />
       <motion.div
         initial={{ opacity: 0, y: 30, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0,  scale: 1    }}
+        exit={{ opacity: 0,    y: 20,  scale: 0.98 }}
         transition={{ duration: 0.45, ease: EASE }}
         className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-7 sm:p-9 transition-all duration-300"
         style={{
@@ -889,19 +871,23 @@ function InfoPanel({ c, lang, onClose, isDay }: { c: Connect; lang: string; onCl
           </button>
         </div>
 
-        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
           {lang === 'es' ? 'Datos' : 'Facts'}
         </p>
         <dl className="mt-3 divide-y" style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.15) }}>
           {c.facts.map((f) => (
-            <div key={f.k} className="flex items-baseline justify-between gap-6 py-3" style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.15) }}>
-              <dt className={`font-mono text-[11px] uppercase tracking-[0.2em] ${isDay ? 'text-slate-500' : 'text-bone/50'}`}>{f.k}</dt>
-              <dd className={`text-right text-sm font-medium ${isDay ? 'text-slate-900' : 'text-bone'}`}>{f.v}</dd>
+            <div
+              key={f.k}
+              className="flex items-baseline justify-between gap-6 py-3"
+              style={{ borderColor: hexA(w.bg, 0.15) }}
+            >
+              <dt className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone/50">{f.k}</dt>
+              <dd className="text-right text-sm font-medium text-bone">{f.v}</dd>
             </div>
           ))}
         </dl>
 
-        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
           {lang === 'es' ? 'Cómo trabajo' : 'How I work'}
         </p>
         <div className="mt-3 space-y-3">
@@ -966,9 +952,9 @@ function InfoPanel({ c, lang, onClose, isDay }: { c: Connect; lang: string; onCl
   );
 }
 
-/* ════════════════════════════════════════════════════════════════════
- * CONTACT POSTER
- * ════════════════════════════════════════════════════════════════════ */
+// ════════════════════════════════════════════════════════════════════════════
+// CONTACT POSTER — below the canvas section, accessible after unlatch
+// ════════════════════════════════════════════════════════════════════════════
 
 function ContactPoster({ c }: { c: Connect }) {
   return (
