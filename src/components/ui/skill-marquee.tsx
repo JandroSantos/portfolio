@@ -1,57 +1,99 @@
-import Marquee from './Marquee';
-
 interface Skill {
   name: string;
   icon: string;
 }
 
 interface SkillMarqueeProps {
-  skills: Skill[];
+  row1: Skill[];
+  row2: Skill[];
 }
 
-const PILL_COLORS = [
-  '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#10b981',
-  '#f97316', '#e11d48', '#6366f1', '#14b8a6', '#facc15',
-];
+const repeat = (skills: Skill[], times = 4): Skill[] =>
+  Array.from({ length: times }).flatMap(() => skills);
 
-function SkillPill({ skill, colorIndex }: { skill: Skill; colorIndex: number }) {
-  const color = PILL_COLORS[colorIndex % PILL_COLORS.length];
+function SkillBall({ skill }: { skill: Skill }) {
   return (
     <div
-      className="flex items-center gap-2 rounded-full px-4 py-2 border shrink-0 select-none"
+      className="h-16 w-16 flex-shrink-0 rounded-full flex items-center justify-center shadow-lg border group relative"
       style={{
-        background: `${color}12`,
-        borderColor: `${color}30`,
+        background: 'rgba(255,255,255,0.05)',
+        backdropFilter: 'blur(12px)',
+        borderColor: 'rgba(255,255,255,0.10)',
       }}
     >
       <img
         src={`https://cdn.simpleicons.org/${skill.icon}`}
         alt={skill.name}
-        width={16}
-        height={16}
+        className="h-8 w-8 object-contain"
         style={{ filter: 'brightness(0) invert(1)', opacity: 0.85 }}
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        onError={(e) => {
+          const el = e.target as HTMLImageElement;
+          el.style.display = 'none';
+          const parent = el.parentElement;
+          if (parent) {
+            const span = document.createElement('span');
+            span.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.7);font-family:monospace;font-weight:700;text-align:center;line-height:1.2;';
+            span.textContent = skill.name.slice(0, 3).toUpperCase();
+            parent.appendChild(span);
+          }
+        }}
       />
-      <span className="text-xs font-mono tracking-wide text-white/70 whitespace-nowrap">
+      {/* Tooltip */}
+      <div
+        className="absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 hidden group-hover:block whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-mono text-white pointer-events-none"
+        style={{
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
         {skill.name}
-      </span>
+      </div>
     </div>
   );
 }
 
-export function SkillMarquee({ skills }: SkillMarqueeProps) {
-  const half = Math.ceil(skills.length / 2);
-  const row1 = skills.slice(0, half);
-  const row2 = skills.slice(half);
+export function SkillMarquee({ row1, row2 }: SkillMarqueeProps) {
+  const r1 = repeat(row1, 4);
+  const r2 = repeat(row2, 4);
 
   return (
-    <div className="flex flex-col gap-3 w-full overflow-hidden">
-      <Marquee duration={28}>
-        {row1.map((s, i) => <SkillPill key={s.name} skill={s} colorIndex={i} />)}
-      </Marquee>
-      <Marquee duration={32} reverse>
-        {row2.map((s, i) => <SkillPill key={s.name} skill={s} colorIndex={i + half} />)}
-      </Marquee>
+    <div className="relative overflow-hidden w-full">
+      <style>{`
+        @keyframes scroll-left {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @keyframes scroll-right {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+        .marquee-left {
+          animation: scroll-left 32s linear infinite;
+          will-change: transform;
+        }
+        .marquee-right {
+          animation: scroll-right 28s linear infinite;
+          will-change: transform;
+        }
+      `}</style>
+
+      {/* Row 1 — left */}
+      <div className="flex gap-4 whitespace-nowrap marquee-left">
+        {r1.map((skill, i) => (
+          <SkillBall key={`r1-${i}`} skill={skill} />
+        ))}
+      </div>
+
+      {/* Row 2 — right */}
+      <div className="mt-4 flex gap-4 whitespace-nowrap marquee-right">
+        {r2.map((skill, i) => (
+          <SkillBall key={`r2-${i}`} skill={skill} />
+        ))}
+      </div>
+
+      {/* Fade edges */}
+      <div className="pointer-events-none absolute left-0 top-0 h-full w-20 bg-gradient-to-r from-black/80 to-transparent" />
+      <div className="pointer-events-none absolute right-0 top-0 h-full w-20 bg-gradient-to-l from-black/80 to-transparent" />
     </div>
   );
 }
