@@ -21,11 +21,11 @@ const w = social.world;
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 // ── Frame sequence ────────────────────────────────────────────────────────────
-// Export frames as /public/frames/frame-0001.jpg … frame-NNNN.jpg
-// Set FRAME_COUNT to the actual number of exported frames.
-const FRAME_COUNT: number = 60;
+// Frames live in /public/frames/frame_0001.jpg … frame_0660.jpg
+// (export from video: ffmpeg -i train.mp4 -vf fps=24 frames/frame_%04d.jpg)
+const FRAME_COUNT: number = 660;
 const FRAME_SRC = (i: number) =>
-  `/frames/frame-${String(i + 1).padStart(4, '0')}.jpg`;
+  `/frames/frame_${String(i + 1).padStart(4, '0')}.jpg`;
 
 // Station scene backgrounds — served via Supabase CDN.
 // Night version appears when the scroll locks; day swaps in via the toggle.
@@ -41,7 +41,7 @@ const LATCH_THRESHOLD = 180;
 // Tune to match your station image composition.
 const BOOTH_STYLE  = { left: '51%', top: '28%', width: '17%', height: '50%' };
 const SIGN_STYLE   = { left: '70%', top: '38%', width: '16%', height: '26%' };
-const TOGGLE_STYLE = { right: '3%',  top: '4%' };
+const TOGGLE_STYLE = { right: '1.25rem', top: '68px' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -90,30 +90,40 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
     offset: ['start start', 'end end'],
   });
 
-  // ── Preload all frames concurrently ───────────────────────────────────────
+  // ── Preload frames with concurrency limit of 16 ───────────────────────────
   useEffect(() => {
     if (FRAME_COUNT === 0) { setFramesFailed(true); return; }
 
     const imgs: (HTMLImageElement | null)[] = new Array(FRAME_COUNT).fill(null);
     let settled = 0;
     let anyOk   = false;
+    const CONCURRENCY = 16;
+    let active = 0;
+    let next   = 0;
 
-    const tick = () => {
+    const done = () => {
       settled++;
+      active--;
       setLoadPct(settled / FRAME_COUNT);
       if (settled === FRAME_COUNT) {
         framesRef.current = imgs;
         anyOk ? setFramesReady(true) : setFramesFailed(true);
       }
+      pump();
     };
 
-    for (let i = 0; i < FRAME_COUNT; i++) {
-      const idx = i;
-      const img = new window.Image();
-      img.onload  = () => { imgs[idx] = img; anyOk = true; tick(); };
-      img.onerror = () => tick();
-      img.src     = FRAME_SRC(i);
-    }
+    const pump = () => {
+      while (active < CONCURRENCY && next < FRAME_COUNT) {
+        const idx = next++;
+        active++;
+        const img = new window.Image();
+        img.onload  = () => { imgs[idx] = img; anyOk = true; done(); };
+        img.onerror = () => done();
+        img.src     = FRAME_SRC(idx);
+      }
+    };
+
+    pump();
   }, []);
 
   // ── Canvas draw — object-fit: cover math ──────────────────────────────────
@@ -219,7 +229,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div ref={containerRef} className="relative" style={{ height: '500vh' }}>
+    <div ref={containerRef} className="relative" style={{ height: '1000vh' }}>
       <div className="sticky top-0 h-[100vh] w-full overflow-hidden">
 
         {/* Dark fallback — visible until frames load or on failure */}
@@ -614,20 +624,23 @@ function CatVideoFollower({ mouseX, isDay }: { mouseX: number; isDay: boolean })
     return (
       <motion.div
         ref={fallbackRef}
-        style={{
-          rotate: rot,
-          x: tx,
-          y: ty,
-          filter: isDay ? 'none' : 'brightness(1.1) contrast(1.1)',
-        }}
-        className="h-full w-full select-none"
+        style={{ rotate: rot, x: tx, y: ty }}
+        className="flex h-full w-full select-none items-center justify-center"
       >
-        <img
-          src="/cat_fallback.jpg"
-          alt="Gato"
-          draggable={false}
-          className="h-full w-full object-contain"
-        />
+        {/* Inline SVG cat — shown when /cat.mp4 is unavailable */}
+        <svg viewBox="0 0 80 72" width="100%" height="100%" aria-label="cat" role="img"
+          style={{ filter: isDay ? 'none' : 'brightness(1.15)' }}>
+          <path d="M8 36 L8 12 L22 24 L40 18 L58 24 L72 12 L72 36 Q72 60 40 66 Q8 60 8 36Z"
+            fill={isDay ? '#c8a87a' : '#8b6f47'} />
+          <ellipse cx="28" cy="34" rx="6" ry="7" fill={isDay ? '#3a2010' : '#1a0c06'} />
+          <ellipse cx="52" cy="34" rx="6" ry="7" fill={isDay ? '#3a2010' : '#1a0c06'} />
+          <ellipse cx="28" cy="34" rx="2.5" ry="4" fill={isDay ? '#7a5c2e' : '#c8a020'} />
+          <ellipse cx="52" cy="34" rx="2.5" ry="4" fill={isDay ? '#7a5c2e' : '#c8a020'} />
+          <path d="M34 44 Q40 48 46 44" stroke={isDay ? '#5a3010' : '#c8a87a'} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+          <circle cx="40" cy="43" r="2" fill={isDay ? '#e0a0a0' : '#f0b0b0'} />
+          <path d="M22 42 L14 40 M22 44 L13 44 M22 46 L14 48" stroke={isDay ? '#8b6f47' : '#c8a87a'} strokeWidth="1" strokeLinecap="round" />
+          <path d="M58 42 L66 40 M58 44 L67 44 M58 46 L66 48" stroke={isDay ? '#8b6f47' : '#c8a87a'} strokeWidth="1" strokeLinecap="round" />
+        </svg>
       </motion.div>
     );
   }
