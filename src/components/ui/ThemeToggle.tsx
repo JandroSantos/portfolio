@@ -1,52 +1,62 @@
 import { Moon, Sun } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface ThemeToggleProps {
   isDay: boolean;
   onToggle: () => void;
   lang: string;
+  className?: string;
 }
 
-export function ThemeToggle({ isDay, onToggle, lang }: ThemeToggleProps) {
+export function ThemeToggle({ isDay, onToggle, className }: ThemeToggleProps) {
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="absolute flex items-center h-8 w-16 rounded-full border p-1 cursor-pointer select-none backdrop-blur-sm transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus:ring-1 focus:ring-white/20"
-      style={{
-        right: '1.25rem',
-        top: '68px',
-        borderColor: isDay ? 'rgba(122, 64, 16, 0.4)' : 'rgba(255, 255, 255, 0.25)',
-        background: isDay ? 'rgba(255, 240, 200, 0.25)' : 'rgba(0, 0, 0, 0.4)',
-      }}
-      aria-label={
+    <div
+      className={cn(
+        'flex w-16 h-8 p-1 rounded-full cursor-pointer transition-all duration-300',
         isDay
-          ? (lang === 'es' ? 'Cambiar a noche' : 'Switch to night')
-          : (lang === 'es' ? 'Cambiar a día' : 'Switch to day')
-      }
+          ? 'bg-white border border-zinc-200'
+          : 'bg-zinc-950 border border-zinc-800',
+        className
+      )}
+      onClick={onToggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? onToggle() : undefined}
+      aria-label={isDay ? 'Switch to night' : 'Switch to day'}
     >
-      <div className="relative w-full h-full flex items-center justify-between px-1 text-bone">
-        {/* Background Icons */}
-        <Sun className={cn("h-3 w-3 transition-opacity duration-300", isDay ? "opacity-90 text-amber-500" : "opacity-25")} />
-        <Moon className={cn("h-3 w-3 transition-opacity duration-300", !isDay ? "opacity-90 text-indigo-200" : "opacity-25")} />
-
-        {/* Sliding Thumb */}
-        <motion.div
-          className="absolute top-0 bottom-0 my-auto left-1 h-5.5 w-5.5 rounded-full flex items-center justify-center shadow-md"
-          animate={{ x: isDay ? 30 : 0 }}
-          transition={{ type: "spring", stiffness: 350, damping: 25 }}
-          style={{
-            background: isDay ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'linear-gradient(135deg, #312e81 0%, #1e1b4b 100%)',
-          }}
+      <div className="flex justify-between items-center w-full">
+        {/* Left thumb */}
+        <div
+          className={cn(
+            'flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300',
+            isDay
+              ? 'transform translate-x-8 bg-gray-200'
+              : 'transform translate-x-0 bg-zinc-800'
+          )}
         >
           {isDay ? (
-            <Sun className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
+            <Sun className="w-4 h-4 text-gray-700" strokeWidth={1.5} />
           ) : (
-            <Moon className="h-2.5 w-2.5 text-amber-100" strokeWidth={2.5} />
+            <Moon className="w-4 h-4 text-white" strokeWidth={1.5} />
           )}
-        </motion.div>
+        </div>
+
+        {/* Right icon */}
+        <div
+          className={cn(
+            'flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300',
+            isDay
+              ? 'transform -translate-x-8'
+              : 'bg-transparent'
+          )}
+        >
+          {isDay ? (
+            <Moon className="w-4 h-4 text-black" strokeWidth={1.5} />
+          ) : (
+            <Sun className="w-4 h-4 text-gray-500" strokeWidth={1.5} />
+          )}
+        </div>
       </div>
-    </button>
+    </div>
   );
 }
