@@ -3,6 +3,7 @@ import {
   useScroll,
   useTransform,
   useMotionValueEvent,
+  useSpring,
   AnimatePresence,
   type MotionValue,
 } from 'framer-motion';
@@ -13,7 +14,7 @@ import { CHARACTERS } from '@/data/characters';
 import { SOCIALS } from '@/data/content';
 import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
-import { hexA, prefersReducedMotion } from '@/lib/utils';
+import { hexA, prefersReducedMotion, hasFinePointer } from '@/lib/utils';
 
 const social = CHARACTERS[0];
 const w = social.world;
@@ -81,6 +82,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
   const [locked,       setLocked]       = useState(false);
   const [isDay,        setIsDay]        = useState(false);
   const [panelOpen,    setPanelOpen]    = useState(false);
+  const [mouseX,       setMouseX]       = useState(0.5);
 
   // ── Scroll progress ────────────────────────────────────────────────────────
   const { scrollYProgress } = useScroll({
@@ -354,6 +356,10 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
         <motion.div
           className="absolute inset-0"
           aria-hidden={!locked}
+          onMouseMove={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setMouseX(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)));
+          }}
           style={{
             opacity: overlayOpacity,
             pointerEvents: locked ? 'auto' : 'none',
@@ -474,6 +480,14 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
             </div>
           </Link>
 
+          {/* Cat video — scrubbed by horizontal mouse position */}
+          <div
+            className="pointer-events-none absolute"
+            style={{ left: '46%', top: '64%', width: '8%', height: '14%' }}
+          >
+            <CatVideoFollower mouseX={mouseX} isDay={isDay} />
+          </div>
+
           {/* Latch release hint */}
           <AnimatePresence>
             {locked && (
@@ -522,6 +536,103 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
           <InfoPanel c={c} lang={lang} isDay={isDay} onClose={() => setPanelOpen(false)} />
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CAT VIDEO FOLLOWER — video scrubbed by horizontal mouse position
+// ════════════════════════════════════════════════════════════════════════════
+
+function CatVideoFollower({ mouseX, isDay }: { mouseX: number; isDay: boolean }) {
+  const videoRef    = useRef<HTMLVideoElement>(null);
+  const fallbackRef = useRef<HTMLDivElement>(null);
+  const [videoError,  setVideoError]  = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+
+  const fine    = hasFinePointer();
+  const reduced = prefersReducedMotion();
+
+  const rot = useSpring(0, { stiffness: 120, damping: 14, mass: 0.5 });
+  const tx  = useSpring(0, { stiffness: 120, damping: 16 });
+  const ty  = useSpring(0, { stiffness: 120, damping: 16 });
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || videoError || !videoLoaded) return;
+    const duration = video.duration || 1;
+    video.currentTime = mouseX * duration;
+  }, [mouseX, videoError, videoLoaded]);
+
+  useEffect(() => {
+    if (reduced || !videoError) return;
+    if (!fine) {
+      let raf = 0;
+      const start = performance.now();
+      const loop = (t: number) => {
+        raf = requestAnimationFrame(loop);
+        const s = Math.sin((t - start) / 900);
+        rot.set(s * 10);
+        tx.set(s * 4);
+      };
+      raf = requestAnimationFrame(loop);
+      return () => cancelAnimationFrame(raf);
+    }
+    const onMove = (e: MouseEvent) => {
+      const el = fallbackRef.current;
+      if (!el) return;
+      const r  = el.getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width  / 2);
+      const dy = e.clientY - (r.top  + r.height / 2);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      rot.set(Math.max(-18, Math.min(18, angle * 0.2)));
+      tx.set(Math.max(-6, Math.min(6, dx * 0.01)));
+      ty.set(Math.max(-4, Math.min(4, dy * 0.01)));
+    };
+    window.addEventListener('mousemove', onMove);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [fine, reduced, videoError, rot, tx, ty]);
+
+  if (videoError) {
+    return (
+      <motion.div
+        ref={fallbackRef}
+        style={{
+          rotate: rot,
+          x: tx,
+          y: ty,
+          filter: isDay ? 'none' : 'brightness(1.1) contrast(1.1)',
+        }}
+        className="h-full w-full select-none"
+      >
+        <img
+          src="/cat_fallback.jpg"
+          alt="Gato"
+          draggable={false}
+          className="h-full w-full object-contain"
+        />
+      </motion.div>
+    );
+  }
+
+  return (
+    <div className="h-full w-full">
+      <video
+        ref={videoRef}
+        src="/cat.mp4"
+        playsInline
+        muted
+        preload="auto"
+        onLoadedMetadata={() => setVideoLoaded(true)}
+        onError={() => setVideoError(true)}
+        className="h-full w-full object-contain"
+        style={{ display: videoLoaded ? 'block' : 'none' }}
+      />
+      {!videoLoaded && !videoError && (
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: `${w.bg}88`, borderTopColor: 'transparent' }} />
+        </div>
+      )}
     </div>
   );
 }
