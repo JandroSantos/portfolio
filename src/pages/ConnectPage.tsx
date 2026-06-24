@@ -2,7 +2,6 @@ import {
   motion,
   useScroll,
   useTransform,
-  useSpring,
   useMotionValueEvent,
   AnimatePresence,
   type MotionValue,
@@ -23,7 +22,7 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 // ── Frame sequence ────────────────────────────────────────────────────────────
 // Export frames as /public/frames/frame-0001.jpg … frame-NNNN.jpg
 // Set FRAME_COUNT to the actual number of exported frames.
-const FRAME_COUNT = 60;
+const FRAME_COUNT: number = 60;
 const FRAME_SRC = (i: number) =>
   `/frames/frame-${String(i + 1).padStart(4, '0')}.jpg`;
 
@@ -212,7 +211,6 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
   }, []);
 
   // ── Derived motion values ──────────────────────────────────────────────────
-  const fillScaleX     = useSpring(scrollYProgress, { stiffness: 120, damping: 30, mass: 0.4 });
   const cueOpacity     = useTransform(scrollYProgress, [0, 0.04], [1, 0]);
   const vignetteO      = useTransform(scrollYProgress, [0, 0.1, 0.85, 1], [0.55, 0.4, 0.4, 0.6]);
   const overlayOpacity = useTransform(scrollYProgress, [0.97, 1.0], [0, 1]);
