@@ -27,8 +27,10 @@ const FRAME_COUNT = 60;
 const FRAME_SRC = (i: number) =>
   `/frames/frame-${String(i + 1).padStart(4, '0')}.jpg`;
 
-// Station scene backgrounds — night must match the last canvas frame exactly.
-const DAY_BG = '/station-day.jpg';
+// Station scene backgrounds — served via Supabase CDN.
+// Night version appears when the scroll locks; day swaps in via the toggle.
+const NIGHT_BG = 'https://ttbejmwipmulrygesdgg.supabase.co/storage/v1/object/public/Photos/tren/estacion_noche.png';
+const DAY_BG   = 'https://ttbejmwipmulrygesdgg.supabase.co/storage/v1/object/public/Photos/tren/estacion_dia.png';
 
 // ── Scroll latch ──────────────────────────────────────────────────────────────
 // Accumulated upward scroll (px) required to release the lock.
@@ -245,15 +247,24 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
           }}
         />
 
-        {/* Day-mode overlay — cross-fades over the canvas when toggled */}
+        {/* Night station — fades in when scroll locks; hidden during journey */}
+        <img
+          src={NIGHT_BG}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+          style={{ opacity: locked ? 1 : 0, transition: 'opacity 0.8s ease' }}
+        />
+
+        {/* Day station — cross-fades on top of night when toggle is active */}
         <img
           src={DAY_BG}
           alt=""
           aria-hidden
           draggable={false}
           className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
-          style={{ opacity: isDay ? 1 : 0, transition: 'opacity 1.5s ease' }}
-          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{ opacity: locked && isDay ? 1 : 0, transition: 'opacity 1.5s ease' }}
         />
 
         {/* Loading screen */}
@@ -304,7 +315,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
             <BeatIntro c={c} />
           </Beat>
 
-          <Beat progress={smoothProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
+          <Beat progress={scrollYProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
             <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'El origen' : 'The origin'}
             </p>
@@ -313,7 +324,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
             </p>
           </Beat>
 
-          <Beat progress={smoothProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
+          <Beat progress={scrollYProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
             <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'El recorrido' : 'The journey'}
             </p>
@@ -322,7 +333,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
             </p>
           </Beat>
 
-          <Beat progress={smoothProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
+          <Beat progress={scrollYProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
             <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
               {lang === 'es' ? 'Ahora mismo' : 'Right now'}
             </p>
@@ -502,7 +513,7 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
         <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/5">
           <motion.div
             className="h-full origin-left"
-            style={{ scaleX: smoothProgress, background: w.bg }}
+            style={{ scaleX: scrollYProgress, background: w.bg }}
           />
         </div>
       </div>
