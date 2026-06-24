@@ -22,8 +22,6 @@ const EASE = [0.16, 1, 0.3, 1] as const;
 /* Placeholder assets live in public/. They may not exist yet — every
  * consumer below degrades gracefully when they 404. */
 const VIDEO_SRC = '/train.mp4';
-const CAT_BODY_SRC = '/cat-body.png';
-const CAT_HEAD_SRC = '/cat-head.png';
 
 export default function ConnectPage() {
   const { d, lang } = useLanguage();
@@ -92,10 +90,14 @@ function ScrollVideo({
   const [isReady, setIsReady] = useState(false);
   const [openInfo, setOpenInfo] = useState(false);
   const [showOverlays, setShowOverlays] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
 
   const frameCount = 660;
   const lastDrawnIndex = useRef(-1);
   const imagesRef = useRef<HTMLImageElement[]>([]);
+  const scrollAccumulator = useRef(0);
+  const touchStartY = useRef(0);
+  const reduced = prefersReducedMotion();
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -207,39 +209,159 @@ function ScrollVideo({
     }
   });
 
+  // Detect scroll hitting bottom boundary to activate lock
+  useEffect(() => {
+    if (reduced) return;
+
+    const handleScroll = () => {
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      if (window.scrollY >= maxScroll - 2) {
+        if (!isLocked) {
+          setIsLocked(true);
+          scrollAccumulator.current = 0;
+        }
+      } else {
+        if (isLocked) {
+          setIsLocked(false);
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isLocked, reduced]);
+
+  // Intercept events when scroll is locked at the platform
+  useEffect(() => {
+    if (reduced || !isLocked) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+
+      if (e.deltaY > 0) {
+        scrollAccumulator.current = 0;
+      } else if (e.deltaY < 0) {
+        scrollAccumulator.current += Math.abs(e.deltaY);
+        
+        if (scrollAccumulator.current >= 250) {
+          setIsLocked(false);
+          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+          window.scrollTo({
+            top: maxScroll - 20,
+            behavior: 'auto'
+          });
+        }
+      }
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const deltaY = touchStartY.current - e.touches[0].clientY;
+      if (deltaY > 0) {
+        scrollAccumulator.current = 0;
+      } else if (deltaY < 0) {
+        scrollAccumulator.current += Math.abs(deltaY);
+        if (scrollAccumulator.current >= 150) {
+          setIsLocked(false);
+          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+          window.scrollTo({
+            top: maxScroll - 20,
+            behavior: 'auto'
+          });
+        }
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+        e.preventDefault();
+        scrollAccumulator.current += 60;
+        if (scrollAccumulator.current >= 200) {
+          setIsLocked(false);
+          const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+          window.scrollTo(0, maxScroll - 20);
+        }
+      } else if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+        e.preventDefault();
+        scrollAccumulator.current = 0;
+      }
+    };
+
+    window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('keydown', handleKeyDown, { passive: false });
+
+    return () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isLocked, reduced]);
+
   return (
     <div ref={containerRef} className="relative" style={{ height: '1000vh' }}>
-      {/* Fixed background for the entire page scroll (remains behind StationSection and ContactPoster) */}
+      {/* Fixed background for the entire page scroll */}
       <div className="fixed inset-0 w-full h-[100vh] overflow-hidden bg-[#0a0503] z-0 pointer-events-none">
-        {/* Canvas container representing the journey */}
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 h-full w-full object-contain"
-          style={{ opacity: isReady ? 1 : 0, transition: 'opacity 0.5s ease' }}
-        />
-
-        {/* High-res static image overlay (Night) that covers the canvas when the train stops */}
-        {isReady && (
-          <motion.img
-            src="/station_end.jpg"
-            alt="Estación"
-            className="absolute inset-0 h-full w-full object-contain"
-            style={{ opacity: staticImageOpacity, pointerEvents: 'none' }}
+        <style dangerouslySetInnerHTML={{__html: `
+          .cover-container {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            will-change: transform, width, height;
+          }
+          @media (min-aspect-ratio: 16/9) {
+            .cover-container {
+              width: 100vw;
+              height: 56.25vw;
+            }
+          }
+          @media (max-aspect-ratio: 16/9) {
+            .cover-container {
+              width: 177.78vh;
+              height: 100vh;
+            }
+          }
+        `}} />
+        
+        {/* Cover scaling container */}
+        <div className="cover-container w-full h-full">
+          {/* Canvas container representing the journey */}
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ opacity: isReady ? 1 : 0, transition: 'opacity 0.5s ease' }}
           />
-        )}
 
-        {/* High-res static image overlay (Day) that crossfades over the night background */}
-        {isReady && (
-          <motion.img
-            src="/station_day.jpg"
-            alt="Estación de Día"
-            className="absolute inset-0 h-full w-full object-contain"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isDay ? 1 : 0 }}
-            transition={{ duration: 0.8, ease: EASE }}
-            style={{ pointerEvents: 'none' }}
-          />
-        )}
+          {/* High-res static image overlay (Night) that covers the canvas when the train stops */}
+          {isReady && (
+            <motion.img
+              src="/station_end.jpg"
+              alt="Estación"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ opacity: staticImageOpacity, pointerEvents: 'none' }}
+            />
+          )}
+
+          {/* High-res static image overlay (Day) that crossfades over the night background */}
+          {isReady && (
+            <motion.img
+              src="/station_day.jpg"
+              alt="Estación de Día"
+              className="absolute inset-0 h-full w-full object-cover"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: isDay ? 1 : 0 }}
+              transition={{ duration: 0.8, ease: EASE }}
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
+        </div>
       </div>
 
       <div className="sticky top-0 h-[100vh] w-full overflow-hidden z-10 pointer-events-none">
@@ -367,12 +489,14 @@ function ScrollVideo({
         className={`fixed inset-0 z-20 ${showOverlays ? 'pointer-events-auto' : 'pointer-events-none'}`}
       >
         {showOverlays && (
-          <InteractiveStation
-            isDay={isDay}
-            setIsDay={setIsDay}
-            lang={lang}
-            onOpenInfo={() => setOpenInfo(true)}
-          />
+          <div className="cover-container w-full h-full pointer-events-auto">
+            <InteractiveStation
+              isDay={isDay}
+              setIsDay={setIsDay}
+              lang={lang}
+              onOpenInfo={() => setOpenInfo(true)}
+            />
+          </div>
         )}
       </motion.div>
 
@@ -554,107 +678,6 @@ function DayNightToggle({
   );
 }
 
-function CatVideoFollower({ mouseX, isDay }: { mouseX: number; isDay: boolean }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoError, setVideoError] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
-
-  const fine = hasFinePointer();
-  const reduced = prefersReducedMotion();
-  const fallbackRef = useRef<HTMLDivElement>(null);
-  
-  const rot = useSpring(0, { stiffness: 120, damping: 14, mass: 0.5 });
-  const tx = useSpring(0, { stiffness: 120, damping: 16 });
-  const ty = useSpring(0, { stiffness: 120, damping: 16 });
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || videoError || !videoLoaded) return;
-    
-    const duration = video.duration || 1;
-    const targetTime = mouseX * duration;
-    video.currentTime = targetTime;
-  }, [mouseX, videoError, videoLoaded]);
-
-  useEffect(() => {
-    if (reduced || !videoError) return;
-
-    if (!fine) {
-      let raf = 0;
-      const start = performance.now();
-      const loop = (t: number) => {
-        raf = requestAnimationFrame(loop);
-        const s = Math.sin((t - start) / 900);
-        rot.set(s * 10);
-        tx.set(s * 4);
-      };
-      raf = requestAnimationFrame(loop);
-      return () => cancelAnimationFrame(raf);
-    }
-
-    const onMove = (e: MouseEvent) => {
-      const el = fallbackRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-      const clamped = Math.max(-18, Math.min(18, angle * 0.2));
-      rot.set(clamped);
-      tx.set(Math.max(-6, Math.min(6, dx * 0.01)));
-      ty.set(Math.max(-4, Math.min(4, dy * 0.01)));
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [fine, reduced, videoError, rot, tx, ty]);
-
-  if (videoError) {
-    return (
-      <motion.div
-        ref={fallbackRef}
-        style={{
-          rotate: rot,
-          x: tx,
-          y: ty,
-          mixBlendMode: 'multiply',
-          filter: isDay ? 'none' : 'brightness(1.1) contrast(1.1)',
-        }}
-        className="w-full h-full select-none"
-      >
-        <img
-          src="/cat_fallback.jpg"
-          alt="Gato de fieltro"
-          draggable={false}
-          className="w-full h-full object-contain"
-        />
-      </motion.div>
-    );
-  }
-
-  return (
-    <div className="w-full h-full">
-      <video
-        ref={videoRef}
-        src="/cat.mp4"
-        playsInline
-        muted
-        preload="auto"
-        onLoadedMetadata={() => setVideoLoaded(true)}
-        onError={() => setVideoError(true)}
-        className="w-full h-full object-contain"
-        style={{ display: videoLoaded ? 'block' : 'none' }}
-      />
-      {!videoLoaded && (
-        <div className="w-full h-full bg-transparent flex items-center justify-center">
-          <div className="h-4 w-4 rounded-full border-2 border-[#f26d4b] border-t-transparent animate-spin" />
-        </div>
-      )}
-    </div>
-  );
-}
-
 function InteractiveStation({
   isDay,
   setIsDay,
@@ -666,95 +689,68 @@ function InteractiveStation({
   lang: string;
   onOpenInfo: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [mouseX, setMouseX] = useState(0.5);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    setMouseX(Math.max(0, Math.min(1, x)));
-  };
-
   return (
     <div
-      ref={containerRef}
-      onMouseMove={handleMouseMove}
-      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      className="w-full h-full relative pointer-events-auto overflow-hidden"
     >
-      <div className="relative aspect-video w-full h-full max-w-[177.78vh] max-h-[56.25vw] pointer-events-auto overflow-hidden">
-        <button
-          type="button"
-          onClick={onOpenInfo}
-          className="absolute cursor-pointer border border-dashed border-transparent hover:border-white/40 rounded-lg transition-colors group z-10"
-          style={{
-            left: '54%',
-            top: '36%',
-            width: '18%',
-            height: '35%',
-          }}
-          aria-label={lang === 'es' ? 'Abrir información de Jandro' : 'Open Jandro info'}
-          data-cursor="hover"
-        >
-          <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/85 text-white font-mono text-[10px] uppercase tracking-wider py-1.5 px-3 rounded border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-20">
-            {lang === 'es' ? 'Ficha de Información (Pulsar)' : 'Information File (Click)'}
-          </div>
-        </button>
-
-        <div
-          className="absolute"
-          style={{
-            left: '46%',
-            top: '64%',
-            width: '8%',
-            height: '14%',
-          }}
-        >
-          <CatVideoFollower mouseX={mouseX} isDay={isDay} />
+      <button
+        type="button"
+        onClick={onOpenInfo}
+        className="absolute cursor-pointer border border-dashed border-transparent hover:border-white/40 rounded-lg transition-colors group z-10"
+        style={{
+          left: '54%',
+          top: '36%',
+          width: '18%',
+          height: '35%',
+        }}
+        aria-label={lang === 'es' ? 'Abrir información de Jandro' : 'Open Jandro info'}
+        data-cursor="hover"
+      >
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/85 text-white font-mono text-[10px] uppercase tracking-wider py-1.5 px-3 rounded border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-20">
+          {lang === 'es' ? 'Ficha de Información (Pulsar)' : 'Information File (Click)'}
         </div>
+      </button>
 
-        <a
-          href="/projects"
-          className="absolute flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 group z-10 select-none"
+      <a
+        href="/projects"
+        className="absolute flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 group z-10 select-none"
+        style={{
+          left: '76%',
+          top: '45%',
+          width: '16%',
+          height: '18%',
+          border: isDay ? '2px solid #475569' : '2px solid #f26d4b',
+          background: isDay 
+            ? 'linear-gradient(135deg, #ffffff, #f1f5f9)' 
+            : 'rgba(242, 109, 75, 0.05)',
+          boxShadow: isDay
+            ? '0 6px 12px -2px rgba(15, 23, 42, 0.12), 0 3px 6px -3px rgba(15, 23, 42, 0.08)'
+            : '0 0 20px rgba(242, 109, 75, 0.25), inset 0 0 10px rgba(242, 109, 75, 0.15)',
+        }}
+        data-cursor="hover"
+      >
+        {/* Hanging Chains */}
+        <div 
+          className="absolute top-0 left-[20%] w-[2px] h-[30px] -translate-y-full transition-colors duration-300"
+          style={{ backgroundColor: isDay ? '#475569' : '#f26d4b' }}
+        />
+        <div 
+          className="absolute top-0 right-[20%] w-[2px] h-[30px] -translate-y-full transition-colors duration-300"
+          style={{ backgroundColor: isDay ? '#475569' : '#f26d4b' }}
+        />
+        
+        <span 
+          className={`font-mono text-[9px] uppercase tracking-[0.2em] font-semibold ${isDay ? 'text-slate-500' : 'text-[#f26d4b]'}`}
           style={{
-            left: '76%',
-            top: '45%',
-            width: '16%',
-            height: '18%',
-            border: isDay ? '2px solid #475569' : '2px solid #f26d4b',
-            background: isDay 
-              ? 'linear-gradient(135deg, #ffffff, #f1f5f9)' 
-              : 'rgba(242, 109, 75, 0.05)',
-            boxShadow: isDay
-              ? '0 6px 12px -2px rgba(15, 23, 42, 0.12), 0 3px 6px -3px rgba(15, 23, 42, 0.08)'
-              : '0 0 20px rgba(242, 109, 75, 0.25), inset 0 0 10px rgba(242, 109, 75, 0.15)',
+            textShadow: isDay ? 'none' : '0 0 8px rgba(242, 109, 75, 0.6)',
           }}
-          data-cursor="hover"
         >
-          {/* Hanging Chains */}
-          <div 
-            className="absolute top-0 left-[20%] w-[2px] h-[30px] -translate-y-full transition-colors duration-300"
-            style={{ backgroundColor: isDay ? '#475569' : '#f26d4b' }}
-          />
-          <div 
-            className="absolute top-0 right-[20%] w-[2px] h-[30px] -translate-y-full transition-colors duration-300"
-            style={{ backgroundColor: isDay ? '#475569' : '#f26d4b' }}
-          />
-          
-          <span 
-            className={`font-mono text-[9px] uppercase tracking-[0.2em] font-semibold ${isDay ? 'text-slate-500' : 'text-[#f26d4b]'}`}
-            style={{
-              textShadow: isDay ? 'none' : '0 0 8px rgba(242, 109, 75, 0.6)',
-            }}
-          >
-            {lang === 'es' ? 'Siguiente Parada' : 'Next Stop'}
-          </span>
-          <span className={`font-display text-sm md:text-base uppercase tracking-wider font-bold group-hover:scale-105 transition-transform mt-1.5 ${isDay ? 'text-slate-800 group-hover:text-[#d04f2f]' : 'text-bone group-hover:text-[#ff8d6f]'}`}>
-            {lang === 'es' ? 'Proyectos ➔' : 'Projects ➔'}
-          </span>
-        </a>
-      </div>
+          {lang === 'es' ? 'Siguiente Parada' : 'Next Stop'}
+        </span>
+        <span className={`font-display text-sm md:text-base uppercase tracking-wider font-bold group-hover:scale-105 transition-transform mt-1.5 ${isDay ? 'text-slate-800 group-hover:text-[#d04f2f]' : 'text-bone group-hover:text-[#ff8d6f]'}`}>
+          {lang === 'es' ? 'Proyectos ➔' : 'Projects ➔'}
+        </span>
+      </a>
     </div>
   );
 }
@@ -781,135 +777,18 @@ function StationSection({ c, lang }: { c: Connect; lang: string }) {
           {lang === 'es' ? 'Bienvenido a la parada' : 'Welcome to the platform'}
         </h2>
 
-        <div className="relative mt-16 grid items-end gap-10 md:grid-cols-2">
-          <CatFollower />
-
-          <InfoBooth lang={lang} onOpen={() => setOpen(true)} />
+        <div className="relative mt-16 flex justify-center">
+          <div className="w-full max-w-lg">
+            <InfoBooth lang={lang} onOpen={() => setOpen(true)} />
+          </div>
         </div>
 
         <div
-          className="mt-2 h-px w-full"
+          className="mt-16 h-px w-full"
           style={{ background: `linear-gradient(90deg, transparent, ${hexA(w.bg, 0.5)}, transparent)` }}
         />
       </div>
     </section>
-  );
-}
-
-function CatFollower() {
-  const fine = hasFinePointer();
-  const reduced = prefersReducedMotion();
-  const headRef = useRef<HTMLDivElement>(null);
-  const [imgOk, setImgOk] = useState({ body: true, head: true });
-
-  const rot = useSpring(0, { stiffness: 120, damping: 14, mass: 0.5 });
-  const tx = useSpring(0, { stiffness: 120, damping: 16 });
-  const ty = useSpring(0, { stiffness: 120, damping: 16 });
-
-  useEffect(() => {
-    if (reduced) return;
-
-    if (!fine) {
-      let raf = 0;
-      const start = performance.now();
-      const loop = (t: number) => {
-        raf = requestAnimationFrame(loop);
-        const s = Math.sin((t - start) / 900);
-        rot.set(s * 10);
-        tx.set(s * 4);
-      };
-      raf = requestAnimationFrame(loop);
-      return () => cancelAnimationFrame(raf);
-    }
-
-    const onMove = (e: MouseEvent) => {
-      const el = headRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-      const clamped = Math.max(-18, Math.min(18, angle * 0.2));
-      rot.set(clamped);
-      tx.set(Math.max(-6, Math.min(6, dx * 0.01)));
-      ty.set(Math.max(-4, Math.min(4, dy * 0.01)));
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [fine, reduced, rot, tx, ty]);
-
-  return (
-    <div className="relative flex h-64 items-end justify-center md:justify-start">
-      <div
-        className="absolute bottom-0 left-1/2 h-3 w-48 -translate-x-1/2 rounded-full blur-md md:left-24"
-        style={{ background: hexA(w.bg, 0.3) }}
-      />
-
-      <div className="relative" style={{ width: 180, height: 200 }}>
-        {imgOk.body ? (
-          <img
-            src={CAT_BODY_SRC}
-            alt=""
-            draggable={false}
-            onError={() => setImgOk((s) => ({ ...s, body: false }))}
-            className="absolute bottom-0 left-1/2 w-32 -translate-x-1/2 select-none object-contain"
-          />
-        ) : (
-          <SvgCatBody />
-        )}
-
-        <motion.div
-          ref={headRef}
-          style={{ rotate: rot, x: tx, y: ty }}
-          className="absolute left-1/2 top-4 z-10 -translate-x-1/2"
-        >
-          {imgOk.head ? (
-            <img
-              src={CAT_HEAD_SRC}
-              alt="cat"
-              draggable={false}
-              onError={() => setImgOk((s) => ({ ...s, head: false }))}
-              className="w-20 select-none object-contain"
-            />
-          ) : (
-            <SvgCatHead />
-          )}
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-function SvgCatHead() {
-  return (
-    <svg width="80" height="72" viewBox="0 0 80 72" aria-label="cat" role="img">
-      <polygon points="12,4 30,26 6,30" fill={w.deep} />
-      <polygon points="68,4 50,26 74,30" fill={w.deep} />
-      <ellipse cx="40" cy="42" rx="30" ry="26" fill={w.bg} />
-      <circle cx="29" cy="40" r="4" fill={w.ink} />
-      <circle cx="51" cy="40" r="4" fill={w.ink} />
-      <path d="M36 50 q4 4 8 0" stroke={w.ink} strokeWidth="2" fill="none" strokeLinecap="round" />
-      <line x1="8" y1="46" x2="24" y2="48" stroke={w.ink} strokeWidth="1.5" opacity="0.6" />
-      <line x1="72" y1="46" x2="56" y2="48" stroke={w.ink} strokeWidth="1.5" opacity="0.6" />
-    </svg>
-  );
-}
-
-function SvgCatBody() {
-  return (
-    <svg
-      width="128"
-      height="150"
-      viewBox="0 0 128 150"
-      className="absolute bottom-0 left-1/2 -translate-x-1/2"
-      aria-hidden
-    >
-      <ellipse cx="64" cy="120" rx="46" ry="30" fill={w.panel} />
-      <path d="M64 60 C40 60 36 110 40 130 L88 130 C92 110 88 60 64 60 Z" fill={w.bg} />
-      <path d="M104 128 q22 -6 14 -34" stroke={w.deep} strokeWidth="10" fill="none" strokeLinecap="round" />
-    </svg>
   );
 }
 
