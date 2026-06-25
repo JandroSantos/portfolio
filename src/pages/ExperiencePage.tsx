@@ -168,84 +168,56 @@ const ITEMS_EN = [
   },
 ];
 
-// ─── Experience card ───────────────────────────────────────────────────────────
+// ─── Card ─────────────────────────────────────────────────────────────────────
 
-function ExperienceCard({
-  item, index, ink,
-}: {
-  item: typeof ITEMS_ES[0];
-  index: number;
-  ink: string;
+function ExperienceCard({ item, index, ink }: {
+  item: typeof ITEMS_ES[0]; index: number; ink: string;
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-40px' }}
-      transition={{ delay: index * 0.07, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="group relative rounded-2xl p-5 sm:p-6 transition-all duration-300"
+      transition={{ delay: index * 0.07, duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      className="group relative rounded-2xl p-5 sm:p-6"
       style={{
         background: 'rgba(255,255,255,0.04)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+        backdropFilter: 'blur(24px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
         border: '1px solid rgba(255,255,255,0.10)',
-        boxShadow:
-          'inset 0 1px 0 rgba(255,255,255,0.08), 0 1px 3px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.25)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.3)',
       }}
     >
-      {/* top-edge shine */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-px rounded-t-2xl"
-        style={{ background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)` }}
-      />
-      {/* hover tint */}
-      <div
-        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-400"
-        style={{ background: `radial-gradient(ellipse 70% 50% at 50% 0%, ${ink}10, transparent)` }}
-      />
+      {/* top shine line */}
+      <div className="pointer-events-none absolute inset-x-6 top-0 h-px rounded-full"
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent)' }} />
 
-      <div className="relative flex flex-col gap-2.5">
-        {/* Meta row */}
+      {/* hover glow */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        style={{ background: `radial-gradient(ellipse 70% 50% at 50% 0%, ${ink}0e, transparent)` }} />
+
+      <div className="relative space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold font-mono uppercase tracking-[0.18em] border"
-            style={{
-              color: ink,
-              background: `${ink}14`,
-              borderColor: `${ink}28`,
-            }}
-          >
+          <span className="inline-flex rounded-full px-2.5 py-[3px] text-[10px] font-mono font-semibold uppercase tracking-[0.16em] border"
+            style={{ color: ink, background: `${ink}12`, borderColor: `${ink}28` }}>
             {item.period}
           </span>
-          {item.org && (
-            item.link ? (
-              <LinkPreview
-                href={item.link}
-                imageSrc={item.preview ?? undefined}
-                imageAlt={item.org}
-                className="text-[11px] font-mono text-white/35 hover:text-white/55 transition-colors no-underline"
-              >
-                {item.org}
-              </LinkPreview>
-            ) : (
-              <span className="text-[11px] font-mono text-white/30">{item.org}</span>
-            )
-          )}
+          {item.org && (item.link ? (
+            <LinkPreview href={item.link} imageSrc={item.preview ?? undefined} imageAlt={item.org}
+              className="text-[11px] font-mono text-white/32 hover:text-white/55 transition-colors no-underline">
+              {item.org}
+            </LinkPreview>
+          ) : (
+            <span className="text-[11px] font-mono text-white/30">{item.org}</span>
+          ))}
         </div>
-
-        {/* Role */}
-        <h3 className="text-[15px] sm:text-base font-semibold tracking-tight text-white/88 leading-snug">
+        <h3 className="text-[15px] font-semibold tracking-tight text-white/88 leading-snug">
           {item.role}
         </h3>
-
-        {/* Description */}
-        <p className="text-[13px] sm:text-sm leading-relaxed text-white/45">
-          {item.segments.map((seg, si) =>
-            seg.h ? (
-              <span key={si} className="font-semibold text-white/80">{seg.text}</span>
-            ) : (
-              <span key={si}>{seg.text}</span>
-            )
+        <p className="text-[13px] leading-relaxed text-white/44">
+          {item.segments.map((s, i) =>
+            s.h ? <span key={i} className="font-semibold text-white/78">{s.text}</span>
+                : <span key={i}>{s.text}</span>
           )}
         </p>
       </div>
@@ -253,37 +225,42 @@ function ExperienceCard({
   );
 }
 
-// ─── Skills section ────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
-function SkillsSection({ ink }: { ink: string }) {
-  const { lang } = useLanguage();
-  const sectionRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
+export default function ExperiencePage() {
+  const { lang, d } = useLanguage();
+  const ink = exec.world.ink;
+  const items = lang === 'es' ? ITEMS_ES : ITEMS_EN;
+
+  // Skills state — lifted here so FloatingCTA renders at page root (no transform parent)
+  const skillsRef = useRef<HTMLDivElement>(null);
+  const [skillsInView, setSkillsInView] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
 
   useEffect(() => {
-    const el = sectionRef.current;
+    const el = skillsRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { threshold: 0.1 }
+      ([e]) => setSkillsInView(e.isIntersecting),
+      { threshold: 0.08 }
     );
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
   return (
-    <>
-      {/* Fixed floating button — appears when section in view, disappears on unlock */}
+    <PageShell character={exec}>
+
+      {/* ── Floating CTA — rendered at page root, truly fixed ──────────────── */}
       <AnimatePresence>
-        {inView && !unlocked && (
+        {skillsInView && !unlocked && (
           <motion.div
-            key="cta"
-            initial={{ opacity: 0, y: 20, scale: 0.92 }}
+            key="floating-cta"
+            initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-            className="fixed bottom-9 left-1/2 z-[150] -translate-x-1/2 pointer-events-auto"
+            exit={{ opacity: 0, y: 12, scale: 0.92 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+            style={{ position: 'fixed', bottom: '2.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 300 }}
           >
             <GlassButton size="lg" onClick={() => setUnlocked(true)}>
               {lang === 'es' ? '✦  Descubre mi stack' : '✦  Discover my stack'}
@@ -292,200 +269,59 @@ function SkillsSection({ ink }: { ink: string }) {
         )}
       </AnimatePresence>
 
-      {/* Section card */}
-      <div
-        ref={sectionRef}
-        className="relative w-full rounded-3xl overflow-hidden"
-        style={{ minHeight: '480px' }}
-      >
-        {/* Background image */}
-        <img
-          src={SKILLS_BG}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 h-full w-full object-cover object-center"
-          style={{ filter: 'brightness(0.45) saturate(1.2)' }}
-        />
-        {/* Gradient overlay — stronger at edges */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'radial-gradient(ellipse 75% 65% at 50% 55%, transparent 20%, rgba(4,4,10,0.75) 100%)',
-          }}
-        />
-        {/* Top / bottom fade to merge with page */}
-        <div
-          className="absolute inset-x-0 top-0 h-24"
-          style={{ background: 'linear-gradient(to bottom, rgba(4,4,10,0.9), transparent)' }}
-        />
-        <div
-          className="absolute inset-x-0 bottom-0 h-24"
-          style={{ background: 'linear-gradient(to top, rgba(4,4,10,0.9), transparent)' }}
-        />
-
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center justify-center py-14 px-4">
-          <AnimatePresence mode="wait">
-            {!unlocked ? (
-              /* Pre-unlock teaser */
-              <motion.div
-                key="teaser"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6, transition: { duration: 0.25 } }}
-                transition={{ duration: 0.45 }}
-                className="flex flex-col items-center gap-5 text-center"
-              >
-                {/* Concentric pulsing rings */}
-                <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
-                  {[0, 1, 2].map((i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute rounded-full"
-                      style={{
-                        width: 52 + i * 38,
-                        height: 52 + i * 38,
-                        border: `1px solid ${ink}`,
-                        opacity: 0.25 - i * 0.06,
-                      }}
-                      animate={{ scale: [1, 1.07, 1], opacity: [0.25 - i * 0.06, 0.45 - i * 0.06, 0.25 - i * 0.06] }}
-                      transition={{ duration: 2.6 + i * 0.4, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
-                    />
-                  ))}
-                  {/* Center glyph */}
-                  <div
-                    className="relative flex items-center justify-center rounded-full text-lg font-bold select-none"
-                    style={{
-                      width: 52,
-                      height: 52,
-                      background: `${ink}18`,
-                      border: `1px solid ${ink}40`,
-                      boxShadow: `0 0 28px ${ink}35`,
-                      color: ink,
-                    }}
-                  >
-                    ✦
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <p className="font-mono text-[10px] uppercase tracking-[0.28em]" style={{ color: ink }}>
-                    {lang === 'es' ? 'Stack tecnológico' : 'Tech stack'}
-                  </p>
-                  <h2 className="text-xl font-semibold text-white/75 sm:text-2xl">
-                    {lang === 'es' ? 'Herramientas que domino' : 'Tools I master'}
-                  </h2>
-                </div>
-              </motion.div>
-            ) : (
-              /* Post-unlock: orbit + marquee */
-              <motion.div
-                key="skills"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="flex w-full flex-col items-center gap-10"
-              >
-                {/* Orbit — extra top padding prevents icon overflow */}
-                <div className="w-full flex justify-center" style={{ paddingTop: 40, paddingBottom: 8 }}>
-                  <SkillOrbit inner={ORBIT_INNER} middle={ORBIT_MIDDLE} outer={ORBIT_OUTER} />
-                </div>
-
-                {/* Marquee */}
-                <div className="w-full overflow-hidden">
-                  <SkillMarquee row1={MARQUEE_ROW1} row2={MARQUEE_ROW2} />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-    </>
-  );
-}
-
-// ─── Page ──────────────────────────────────────────────────────────────────────
-
-export default function ExperiencePage() {
-  const { lang, d } = useLanguage();
-  const ink = exec.world.ink;
-  const items = lang === 'es' ? ITEMS_ES : ITEMS_EN;
-
-  return (
-    <PageShell character={exec}>
-      <div className="relative w-full">
+      <div className="w-full">
 
         {/* ── Hero ──────────────────────────────────────────────────────────── */}
-        <section className="relative flex min-h-[60vh] flex-col items-center justify-center overflow-hidden px-6 pt-24 pb-16 text-center">
-          {/* bloom */}
-          <div
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background: `radial-gradient(ellipse 60% 50% at 50% 25%, ${ink}1e 0%, transparent 65%)`,
-            }}
-          />
+        <section className="relative flex min-h-[58vh] flex-col items-center justify-center px-6 pt-24 pb-14 text-center">
+          <div className="pointer-events-none absolute inset-0"
+            style={{ background: `radial-gradient(ellipse 55% 45% at 50% 22%, ${ink}1c 0%, transparent 65%)` }} />
 
           <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.45 }}
             className="mb-3 font-mono text-[10px] uppercase tracking-[0.32em]"
-            style={{ color: `${ink}cc` }}
-          >
+            style={{ color: `${ink}bb` }}>
             {d.experience.eyebrow}
           </motion.p>
 
           <motion.h1
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.25, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="text-[clamp(3rem,10vw,7rem)] font-bold leading-[0.95] tracking-tight"
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.24, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="text-[clamp(3.2rem,9vw,6.5rem)] font-bold leading-none tracking-tight"
             style={{
-              background: `linear-gradient(150deg, #fff 30%, ${ink}aa 100%)`,
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}
-          >
+              background: `linear-gradient(145deg, #fff 25%, ${ink}99 100%)`,
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            }}>
             {d.experience.title}
           </motion.h1>
 
           <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.38, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-5 max-w-sm text-sm leading-relaxed text-white/38 sm:text-[15px]"
-          >
+            initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.36, duration: 0.45 }}
+            className="mt-5 max-w-sm text-[13px] leading-relaxed text-white/38 sm:text-sm">
             {d.experience.intro}
           </motion.p>
 
-          {/* scroll hint */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.1, duration: 0.8 }}
-            className="absolute bottom-6 flex flex-col items-center gap-1.5"
-          >
-            <span className="font-mono text-[8px] uppercase tracking-[0.32em] text-white/18">
-              {d.meta.scroll}
-            </span>
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            transition={{ delay: 1.0, duration: 0.7 }}
+            className="absolute bottom-5 flex flex-col items-center gap-1.5">
+            <span className="font-mono text-[8px] uppercase tracking-[0.32em] text-white/18">{d.meta.scroll}</span>
             <motion.div
               animate={{ y: [0, 5, 0] }}
-              transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-              className="h-7 w-px"
-              style={{ background: `linear-gradient(to bottom, ${ink}44, transparent)` }}
-            />
+              transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+              className="h-6 w-px"
+              style={{ background: `linear-gradient(to bottom, ${ink}40, transparent)` }} />
           </motion.div>
         </section>
 
-        {/* ── Experience cards ───────────────────────────────────────────────── */}
-        <section className="mx-auto w-full max-w-xl px-5 sm:px-6">
-          {/* thin rule */}
+        {/* ── Experience cards ─────────────────────────────────────────────── */}
+        <section className="mx-auto w-full max-w-[560px] px-4 sm:px-0">
+          {/* divider */}
           <div className="mb-8 flex items-center gap-3">
-            <div className="h-px flex-1" style={{ background: `linear-gradient(to right, transparent, ${ink}30)` }} />
-            <div className="h-1 w-1 rounded-full" style={{ background: `${ink}80` }} />
-            <div className="h-px flex-1" style={{ background: `linear-gradient(to left, transparent, ${ink}30)` }} />
+            <div className="h-px flex-1" style={{ background: `linear-gradient(to right, transparent, ${ink}28)` }} />
+            <div className="h-[5px] w-[5px] rounded-full" style={{ background: `${ink}70` }} />
+            <div className="h-px flex-1" style={{ background: `linear-gradient(to left, transparent, ${ink}28)` }} />
           </div>
 
           <div className="flex flex-col gap-2.5">
@@ -495,9 +331,80 @@ export default function ExperiencePage() {
           </div>
         </section>
 
-        {/* ── Skills ────────────────────────────────────────────────────────── */}
-        <section className="mx-auto mt-12 max-w-4xl px-4 pb-36 sm:px-6">
-          <SkillsSection ink={ink} />
+        {/* ── Skills section ───────────────────────────────────────────────── */}
+        <section className="mx-auto mt-12 w-full max-w-4xl px-4 pb-36 sm:px-6">
+          <div
+            ref={skillsRef}
+            className="relative w-full overflow-hidden rounded-3xl"
+            style={{ minHeight: 480 }}
+          >
+            {/* background image */}
+            <img src={SKILLS_BG} alt="" aria-hidden
+              className="absolute inset-0 h-full w-full object-cover object-center select-none"
+              style={{ filter: 'brightness(0.4) saturate(1.3)' }} />
+
+            {/* dark radial vignette */}
+            <div className="absolute inset-0"
+              style={{ background: 'radial-gradient(ellipse 80% 70% at 50% 55%, transparent 15%, rgba(3,3,8,0.78) 100%)' }} />
+
+            {/* top / bottom fade */}
+            <div className="absolute inset-x-0 top-0 h-20"
+              style={{ background: 'linear-gradient(to bottom, rgba(3,3,8,0.88), transparent)' }} />
+            <div className="absolute inset-x-0 bottom-0 h-20"
+              style={{ background: 'linear-gradient(to top, rgba(3,3,8,0.88), transparent)' }} />
+
+            {/* content */}
+            <div className="relative z-10 flex flex-col items-center justify-center py-16 px-4">
+              <AnimatePresence mode="wait">
+                {!unlocked ? (
+                  <motion.div key="teaser"
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8, transition: { duration: 0.2 } }}
+                    transition={{ duration: 0.4 }}
+                    className="flex flex-col items-center gap-6 text-center">
+                    {/* pulsing rings */}
+                    <div className="relative flex items-center justify-center" style={{ width: 160, height: 160 }}>
+                      {[0, 1, 2].map((i) => (
+                        <motion.div key={i}
+                          className="absolute rounded-full"
+                          style={{ width: 52 + i * 40, height: 52 + i * 40, border: `1px solid ${ink}`, opacity: 0.22 - i * 0.05 }}
+                          animate={{ scale: [1, 1.08, 1], opacity: [0.22 - i * 0.05, 0.42 - i * 0.05, 0.22 - i * 0.05] }}
+                          transition={{ duration: 2.5 + i * 0.5, delay: i * 0.35, repeat: Infinity, ease: 'easeInOut' }}
+                        />
+                      ))}
+                      <div className="relative flex items-center justify-center rounded-full select-none"
+                        style={{ width: 52, height: 52, background: `${ink}16`, border: `1px solid ${ink}38`, boxShadow: `0 0 24px ${ink}28`, color: ink, fontSize: 18 }}>
+                        ✦
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.28em]" style={{ color: `${ink}cc` }}>
+                        {lang === 'es' ? 'Stack tecnológico' : 'Tech stack'}
+                      </p>
+                      <h2 className="text-xl font-semibold text-white/70 sm:text-2xl">
+                        {lang === 'es' ? 'Herramientas que domino' : 'Tools I master'}
+                      </h2>
+                    </div>
+                    {/* spacer so button doesn't overlap content */}
+                    <div className="h-10" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="skills"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex w-full flex-col items-center gap-10">
+                    {/* extra top padding so orbit top icons don't clip */}
+                    <div className="flex w-full justify-center" style={{ paddingTop: 44 }}>
+                      <SkillOrbit inner={ORBIT_INNER} middle={ORBIT_MIDDLE} outer={ORBIT_OUTER} />
+                    </div>
+                    <div className="w-full overflow-hidden">
+                      <SkillMarquee row1={MARQUEE_ROW1} row2={MARQUEE_ROW2} />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         </section>
 
       </div>
