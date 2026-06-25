@@ -10,6 +10,10 @@ import { SkillMarquee } from '@/components/ui/skill-marquee';
 
 const exec = CHARACTERS[2];
 
+// Background image for the skills section
+const SKILLS_BG =
+  'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1600&q=80';
+
 // ─── Skill data ────────────────────────────────────────────────────────────────
 
 const ORBIT_INNER = [
@@ -79,7 +83,7 @@ const ITEMS_ES = [
       { text: 'eventos', h: true },
       { text: ' y actividades. Gestión de grupos, ', h: false },
       { text: 'liderazgo', h: true },
-      { text: ' bajo presión y comunicación efectiva con equipos de trabajo.', h: false },
+      { text: ' bajo presión y comunicación efectiva con equipos.', h: false },
     ],
   },
   {
@@ -91,7 +95,7 @@ const ITEMS_ES = [
     segments: [
       { text: 'Dos años en ', h: false },
       { text: 'hostelería', h: true },
-      { text: ' desarrollando ', h: false },
+      { text: ': ', h: false },
       { text: 'agilidad', h: true },
       { text: ', atención al ', h: false },
       { text: 'cliente', h: true },
@@ -150,7 +154,7 @@ const ITEMS_EN = [
       { text: 'events', h: true },
       { text: ' and activities. Group management, ', h: false },
       { text: 'leadership', h: true },
-      { text: ' under pressure and effective team communication.', h: false },
+      { text: ' under pressure and effective communication.', h: false },
     ],
   },
   {
@@ -162,11 +166,11 @@ const ITEMS_EN = [
     segments: [
       { text: 'Two years in ', h: false },
       { text: 'hospitality', h: true },
-      { text: ' building ', h: false },
+      { text: ': ', h: false },
       { text: 'agility', h: true },
       { text: ', ', h: false },
       { text: 'customer focus', h: true },
-      { text: ' and the ability to perform under ', h: false },
+      { text: ' and performing under ', h: false },
       { text: 'pressure', h: true },
       { text: '.', h: false },
     ],
@@ -227,54 +231,53 @@ function ExperienceCard({
       className="group relative flex flex-col gap-3 rounded-2xl border p-6 sm:p-7 transition-all duration-300"
       style={{
         background: 'rgba(255,255,255,0.03)',
-        backdropFilter: 'blur(12px)',
-        borderColor: 'rgba(255,255,255,0.07)',
-        boxShadow: '0 1px 0 rgba(255,255,255,0.04)',
+        backdropFilter: 'blur(16px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+        borderColor: 'rgba(255,255,255,0.08)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.2)',
       }}
     >
       <div
         className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
         style={{
-          background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${ink}10 0%, transparent 70%)`,
+          background: `radial-gradient(ellipse 80% 60% at 50% 0%, ${ink}12 0%, transparent 70%)`,
         }}
       />
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span
-              className="text-[10px] font-mono uppercase tracking-[0.22em] px-2 py-0.5 rounded-full border"
-              style={{ color: ink, borderColor: `${ink}30`, background: `${ink}10` }}
-            >
-              {item.period}
+      <div>
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <span
+            className="text-[10px] font-mono uppercase tracking-[0.22em] px-2.5 py-0.5 rounded-full border"
+            style={{ color: ink, borderColor: `${ink}35`, background: `${ink}12` }}
+          >
+            {item.period}
+          </span>
+          {item.org && (
+            <span className="text-[10px] font-mono text-white/30 tracking-wide">
+              {item.link ? (
+                <LinkPreview
+                  href={item.link}
+                  imageSrc={item.preview ?? undefined}
+                  imageAlt={item.org}
+                  className="text-white/40 hover:text-white/65 transition-colors no-underline"
+                >
+                  {item.org}
+                </LinkPreview>
+              ) : (
+                item.org
+              )}
             </span>
-            {item.org && (
-              <span className="text-[10px] font-mono text-white/35 tracking-wide">
-                {item.link ? (
-                  <LinkPreview
-                    href={item.link}
-                    imageSrc={item.preview ?? undefined}
-                    imageAlt={item.org}
-                    className="text-white/40 hover:text-white/70 transition-colors no-underline"
-                  >
-                    {item.org}
-                  </LinkPreview>
-                ) : (
-                  item.org
-                )}
-              </span>
-            )}
-          </div>
-          <h3 className="text-base sm:text-lg font-semibold text-white/90 leading-tight">
-            {item.role}
-          </h3>
+          )}
         </div>
+        <h3 className="text-base sm:text-[17px] font-semibold text-white/90 leading-snug">
+          {item.role}
+        </h3>
       </div>
 
-      <p className="text-sm text-white/55 leading-relaxed">
+      <p className="text-sm text-white/50 leading-relaxed">
         {item.segments.map((seg, si) =>
           seg.h ? (
-            <span key={si} className="font-semibold text-white/90">{seg.text}</span>
+            <span key={si} className="font-semibold text-white/85">{seg.text}</span>
           ) : (
             <span key={si}>{seg.text}</span>
           )
@@ -284,127 +287,180 @@ function ExperienceCard({
   );
 }
 
-// ─── Skills section with scroll latch ─────────────────────────────────────────
+// ─── Floating CTA button (fixed, appears when skills section is in view) ───────
 
-function SkillsSection(_props: { ink: string }) {
+function FloatingCTA({
+  visible,
+  unlocked,
+  onUnlock,
+  lang,
+}: {
+  visible: boolean;
+  unlocked: boolean;
+  onUnlock: () => void;
+  lang: string;
+}) {
+  return (
+    <AnimatePresence>
+      {visible && !unlocked && (
+        <motion.div
+          key="floating-cta"
+          initial={{ opacity: 0, y: 24, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 16, scale: 0.92 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+          className="fixed bottom-10 left-1/2 z-[150] -translate-x-1/2"
+        >
+          <GlassButton size="lg" onClick={onUnlock}>
+            {lang === 'es' ? '✦ Descubre mi stack' : '✦ Discover my stack'}
+          </GlassButton>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Skills section ────────────────────────────────────────────────────────────
+
+function SkillsSection({ ink }: { ink: string }) {
   const { lang } = useLanguage();
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const [latched, setLatched] = useState(false);   // scroll is locked, overlay visible
-  const [unlocked, setUnlocked] = useState(false);  // button clicked, skills revealed
-  const latchedRef = useRef(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
 
-  // Observe sentinel entering viewport → latch
   useEffect(() => {
-    const el = sentinelRef.current;
+    const el = sectionRef.current;
     if (!el) return;
     const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !latchedRef.current) {
-          latchedRef.current = true;
-          setLatched(true);
-          // Snap scroll so the sentinel is flush with the viewport top
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      },
-      { threshold: 0.15 }
+      ([entry]) => setVisible(entry.isIntersecting),
+      { threshold: 0.2 }
     );
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
 
-  // While latched (and not yet unlocked), block scroll
-  useEffect(() => {
-    if (!latched || unlocked) return;
-    const block = (e: Event) => e.preventDefault();
-    window.addEventListener('wheel', block, { passive: false });
-    window.addEventListener('touchmove', block, { passive: false });
-    return () => {
-      window.removeEventListener('wheel', block);
-      window.removeEventListener('touchmove', block);
-    };
-  }, [latched, unlocked]);
-
-  const handleUnlock = () => {
-    setUnlocked(true);
-  };
-
   return (
     <>
-      {/* Sentinel — intersection triggers latch */}
-      <div ref={sentinelRef} className="w-full" style={{ height: 1 }} />
+      {/* Floating button — fixed, follows viewport */}
+      <FloatingCTA
+        visible={visible}
+        unlocked={unlocked}
+        onUnlock={() => setUnlocked(true)}
+        lang={lang}
+      />
 
-      {/* Lock overlay — fixed, covers full screen */}
-      <AnimatePresence>
-        {latched && !unlocked && (
-          <motion.div
-            key="lock-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, transition: { duration: 0.35 } }}
-            className="fixed inset-0 z-[200] flex flex-col items-center justify-center gap-6"
-            style={{
-              background: 'rgba(4,3,2,0.72)',
-              backdropFilter: 'blur(18px) saturate(160%)',
-              WebkitBackdropFilter: 'blur(18px) saturate(160%)',
-            }}
-          >
-            {/* Floating lock icon */}
-            <motion.div
-              animate={{ y: [0, -8, 0] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-                <rect x="9" y="20" width="26" height="17" rx="5"
-                  fill="rgba(255,255,255,0.07)"
-                  stroke="rgba(255,255,255,0.18)"
-                  strokeWidth="1.5"
-                />
-                <path
-                  d="M14 20V15a8 8 0 0116 0v5"
-                  stroke="rgba(255,255,255,0.30)"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                />
-                <circle cx="22" cy="29" r="3" fill="rgba(255,255,255,0.45)" />
-              </svg>
-            </motion.div>
+      {/* Skills section with image background */}
+      <div
+        ref={sectionRef}
+        className="relative w-full overflow-hidden rounded-3xl"
+        style={{ minHeight: unlocked ? 'auto' : '60vh' }}
+      >
+        {/* Background image */}
+        <div
+          className="absolute inset-0 -z-0"
+          style={{
+            backgroundImage: `url(${SKILLS_BG})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        />
+        {/* Frosted glass overlay over image */}
+        <div
+          className="absolute inset-0 -z-0"
+          style={{
+            background: 'rgba(4,4,8,0.55)',
+            backdropFilter: 'blur(2px)',
+          }}
+        />
+        {/* Gradient vignette */}
+        <div
+          className="absolute inset-0 -z-0"
+          style={{
+            background: `radial-gradient(ellipse 90% 70% at 50% 50%, transparent 30%, rgba(4,4,8,0.7) 100%)`,
+          }}
+        />
 
-            <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-white/35">
-              {lang === 'es' ? 'Stack bloqueado' : 'Stack locked'}
-            </p>
-
-            <GlassButton size="lg" onClick={handleUnlock}>
-              {lang === 'es' ? 'Desbloquear stack' : 'Unlock stack'}
-            </GlassButton>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Skills — revealed after unlock */}
-      <AnimatePresence>
-        {unlocked && (
-          <motion.div
-            key="skills-content"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col items-center gap-12 py-10 w-full"
-          >
-            {/* Orbit */}
-            <div className="w-full flex justify-center overflow-hidden">
-              <SkillOrbit inner={ORBIT_INNER} middle={ORBIT_MIDDLE} outer={ORBIT_OUTER} />
-            </div>
-
-            {/* Marquee */}
-            <div className="w-full overflow-hidden">
-              <SkillMarquee row1={MARQUEE_ROW1} row2={MARQUEE_ROW2} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Placeholder height so page doesn't collapse while skills aren't shown */}
-      {!unlocked && <div className="h-20" />}
+        {/* Content */}
+        <div className="relative z-10 flex flex-col items-center justify-center px-4 py-16 sm:py-20">
+          <AnimatePresence mode="wait">
+            {!unlocked ? (
+              /* Pre-unlock: teaser text */
+              <motion.div
+                key="teaser"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.4 }}
+                className="flex flex-col items-center gap-4 text-center pb-6"
+              >
+                <p
+                  className="font-mono text-[10px] uppercase tracking-[0.3em]"
+                  style={{ color: ink }}
+                >
+                  {lang === 'es' ? 'Mi stack tecnológico' : 'My tech stack'}
+                </p>
+                <h2 className="text-2xl font-bold text-white/80 sm:text-3xl">
+                  {lang === 'es' ? 'Herramientas que domino' : 'Tools I master'}
+                </h2>
+                <p className="text-sm text-white/40 max-w-xs">
+                  {lang === 'es'
+                    ? 'Pulsa el botón para explorar mis habilidades'
+                    : 'Tap the button to explore my skills'}
+                </p>
+                {/* decorative shimmer rings */}
+                <div className="relative mt-2 flex items-center justify-center" style={{ width: 140, height: 140 }}>
+                  {[0, 1, 2].map((i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute rounded-full border"
+                      style={{
+                        width: 60 + i * 32,
+                        height: 60 + i * 32,
+                        borderColor: `${ink}${['40', '28', '14'][i]}`,
+                      }}
+                      animate={{ scale: [1, 1.06, 1], opacity: [0.6, 1, 0.6] }}
+                      transition={{
+                        duration: 2.4,
+                        delay: i * 0.4,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    />
+                  ))}
+                  <div
+                    className="rounded-full flex items-center justify-center text-xl"
+                    style={{
+                      width: 56,
+                      height: 56,
+                      background: `${ink}18`,
+                      border: `1px solid ${ink}40`,
+                      boxShadow: `0 0 24px ${ink}30`,
+                    }}
+                  >
+                    ✦
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              /* Post-unlock: orbit + marquee */
+              <motion.div
+                key="skills"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                className="flex w-full flex-col items-center gap-12"
+              >
+                <div className="w-full flex justify-center">
+                  <SkillOrbit inner={ORBIT_INNER} middle={ORBIT_MIDDLE} outer={ORBIT_OUTER} />
+                </div>
+                <div className="w-full overflow-hidden">
+                  <SkillMarquee row1={MARQUEE_ROW1} row2={MARQUEE_ROW2} />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
     </>
   );
 }
@@ -437,7 +493,7 @@ export default function ExperiencePage() {
           <div
             className="pointer-events-none absolute inset-0"
             style={{
-              background: `radial-gradient(ellipse 70% 55% at 50% 30%, ${ink}22 0%, transparent 65%)`,
+              background: `radial-gradient(ellipse 70% 55% at 50% 30%, ${ink}20 0%, transparent 65%)`,
             }}
           />
 
@@ -457,7 +513,7 @@ export default function ExperiencePage() {
             transition={{ delay: 0.3, duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             className="text-5xl font-bold leading-none tracking-tight sm:text-7xl lg:text-8xl"
             style={{
-              background: `linear-gradient(135deg, #ffffff 0%, ${ink}cc 100%)`,
+              background: `linear-gradient(150deg, #ffffff 0%, ${ink}bb 100%)`,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -470,7 +526,7 @@ export default function ExperiencePage() {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.42, duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-6 max-w-md text-sm leading-relaxed text-white/45 sm:text-base"
+            className="mt-6 max-w-md text-sm leading-relaxed text-white/40 sm:text-base"
           >
             {d.experience.intro}
           </motion.p>
@@ -478,44 +534,44 @@ export default function ExperiencePage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 0.8 }}
+            transition={{ delay: 1.1, duration: 0.8 }}
             className="absolute bottom-8 flex flex-col items-center gap-2"
           >
-            <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/25">
+            <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-white/20">
               {d.meta.scroll}
             </span>
             <motion.div
               animate={{ y: [0, 6, 0] }}
               transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
               className="h-8 w-px rounded-full"
-              style={{ background: `linear-gradient(to bottom, ${ink}60, transparent)` }}
+              style={{ background: `linear-gradient(to bottom, ${ink}50, transparent)` }}
             />
           </motion.div>
         </motion.section>
 
-        {/* ── Content ────────────────────────────────────────────────────────── */}
-        <section className="relative mx-auto max-w-2xl px-4 pb-40 sm:px-6">
+        {/* ── Experience cards ───────────────────────────────────────────────── */}
+        <section className="relative mx-auto max-w-2xl px-4 sm:px-6">
 
-          <div className="mb-12 flex items-center gap-4">
+          {/* Divider */}
+          <div className="mb-10 flex items-center gap-4">
             <div className="h-px flex-1"
-              style={{ background: `linear-gradient(to right, transparent, ${ink}40)` }} />
+              style={{ background: `linear-gradient(to right, transparent, ${ink}35)` }} />
             <div className="h-1.5 w-1.5 rounded-full"
-              style={{ background: ink, boxShadow: `0 0 8px ${ink}` }} />
+              style={{ background: ink, boxShadow: `0 0 8px ${ink}90` }} />
             <div className="h-px flex-1"
-              style={{ background: `linear-gradient(to left, transparent, ${ink}40)` }} />
+              style={{ background: `linear-gradient(to left, transparent, ${ink}35)` }} />
           </div>
 
-          {/* Experience cards */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             {items.map((item, i) => (
               <ExperienceCard key={item.role} item={item} index={i} ink={ink} />
             ))}
           </div>
+        </section>
 
-          {/* Skills with scroll latch */}
-          <div className="mt-16">
-            <SkillsSection ink={ink} />
-          </div>
+        {/* ── Skills section ─────────────────────────────────────────────────── */}
+        <section className="mx-auto mt-16 max-w-4xl px-4 pb-40 sm:px-6">
+          <SkillsSection ink={ink} />
         </section>
       </div>
     </PageShell>
