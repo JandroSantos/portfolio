@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { TerminalSquare } from 'lucide-react';
 import { on } from './lib/bus';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,17 +11,22 @@ import Cursor from './components/ui/Cursor';
 import ScrollProgress from './components/ui/ScrollProgress';
 import Preloader from './components/Preloader';
 import LanguageSwitchOverlay from './components/ui/LanguageSwitchOverlay';
-import Terminal from './components/terminal/Terminal';
-import RemoteCar from './components/effects/RemoteCar';
-import MatrixRain from './components/effects/MatrixRain';
 import CommandPalette from './components/ui/CommandPalette';
 import { usePartyMode } from './components/effects/PartyMode';
-import LandingPage from './pages/LandingPage';
-import ConnectPage from './pages/ConnectPage';
-import ProjectsPage from './pages/ProjectsPage';
-import ExperiencePage from './pages/ExperiencePage';
-import StudiesPage from './pages/StudiesPage';
-import CvPage from './pages/CvPage';
+
+/* Route-level code splitting — each page ships its own chunk, so the initial
+   load only pays for the landing page + shared shell. */
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const ConnectPage = lazy(() => import('./pages/ConnectPage'));
+const ProjectsPage = lazy(() => import('./pages/ProjectsPage'));
+const ExperiencePage = lazy(() => import('./pages/ExperiencePage'));
+const StudiesPage = lazy(() => import('./pages/StudiesPage'));
+const CvPage = lazy(() => import('./pages/CvPage'));
+
+/* Heavy / easter-egg extras — deferred so they never block first paint. */
+const Terminal = lazy(() => import('./components/terminal/Terminal'));
+const RemoteCar = lazy(() => import('./components/effects/RemoteCar'));
+const MatrixRain = lazy(() => import('./components/effects/MatrixRain'));
 
 // Recruitment message visible in DevTools → Console
 const ASCII =
@@ -62,25 +67,29 @@ function Shell() {
       <Cursor />
       <ScrollProgress />
       <LanguageSwitchOverlay />
-      <RemoteCar />
-      <MatrixRain />
+      <Suspense fallback={null}>
+        <RemoteCar />
+        <MatrixRain />
+      </Suspense>
 
       <CommandPalette
         onOpenTerminal={() => setOpen(true)}
         onPartyMode={party}
       />
 
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/connect" element={<ConnectPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/experience" element={<ExperiencePage />} />
-          <Route path="/studies" element={<StudiesPage />} />
-          <Route path="/cv" element={<CvPage />} />
-          <Route path="*" element={<LandingPage />} />
-        </Routes>
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/connect" element={<ConnectPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/experience" element={<ExperiencePage />} />
+            <Route path="/studies" element={<StudiesPage />} />
+            <Route path="/cv" element={<CvPage />} />
+            <Route path="*" element={<LandingPage />} />
+          </Routes>
+        </AnimatePresence>
+      </Suspense>
 
       {/* Floating terminal trigger — keeps the easter egg reachable on touch */}
       <motion.button
@@ -97,7 +106,9 @@ function Shell() {
         <TerminalSquare size={20} />
       </motion.button>
 
-      <Terminal open={open} onClose={close} />
+      <Suspense fallback={null}>
+        {open && <Terminal open={open} onClose={close} />}
+      </Suspense>
     </>
   );
 }

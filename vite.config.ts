@@ -11,4 +11,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    // Vendor splitting: long-cached chunks the browser keeps between deploys.
+    rollupOptions: {
+      output: {
+        advancedChunks: {
+          groups: [
+            { name: 'react', test: /node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\// },
+            { name: 'motion', test: /node_modules\/(framer-motion|motion-dom|motion-utils)\// },
+            { name: 'icons', test: /node_modules\/lucide-react\// },
+          ],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 700,
+  },
 })

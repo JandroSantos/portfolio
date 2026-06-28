@@ -381,7 +381,7 @@ export default function ExperiencePage() {
             {/* clipped backdrop layer (image + overlays) — kept separate so
                 node tooltips in the content layer are never cut off */}
             <div className="absolute inset-0 overflow-hidden rounded-3xl">
-              <img src={SKILLS_BG} alt="" aria-hidden
+              <img src={SKILLS_BG} alt="" aria-hidden loading="lazy" decoding="async"
                 className="absolute inset-0 h-full w-full object-cover object-center select-none"
                 style={{ filter: 'brightness(0.4) saturate(1.3)' }} />
               <div className="absolute inset-0"

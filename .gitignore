@@ -30,3 +30,8 @@ Image *.png
 __pycache__/
 *.pyc
 *.pyo
+
+# Heavy junk / archives
+*.zip
+real_merged.mp4
+*.mov
