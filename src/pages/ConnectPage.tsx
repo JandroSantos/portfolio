@@ -39,7 +39,7 @@ const LATCH_THRESHOLD = 180;
 // ── Interactive hotspot layout ────────────────────────────────────────────────
 // Percentage positions relative to the fullscreen viewport.
 // Tune to match your station image composition.
-const BOOTH_STYLE  = { left: '51%', top: '28%', width: '17%', height: '50%' };
+const BOOTH_STYLE  = { left: '50.5%', top: '30%', width: '15%', height: '44%' };
 const SIGN_STYLE   = { left: '70%', top: '38%', width: '16%', height: '26%' };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,6 +68,7 @@ export default function ConnectPage() {
 // ════════════════════════════════════════════════════════════════════════════
 
 function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
+  const reduced = prefersReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const framesRef = useRef<(HTMLImageElement | null)[]>([]);
@@ -286,7 +287,8 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
             height: '100vh',
             zIndex: 46,
             opacity: locked && isDay ? 1 : 0,
-            transition: 'opacity 1.5s ease',
+            transition: 'opacity 720ms cubic-bezier(0.4, 0, 0.2, 1)',
+            willChange: 'opacity',
           }}
         />
 
@@ -339,37 +341,49 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
           </Beat>
 
           <Beat progress={scrollYProgress} range={[0.24, 0.29, 0.4, 0.46]} align="left">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+            <p className="font-mono text-[11px] uppercase tracking-[0.45em]" style={{ color: isDay ? '#c0432a' : w.bg }}>
               {lang === 'es' ? 'El origen' : 'The origin'}
             </p>
-            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
+            <p
+              className={`mt-5 max-w-2xl font-display text-[clamp(1.9rem,5.2vw,4.6rem)] uppercase leading-[1.0] tracking-[-0.01em] text-balance ${isDay ? 'text-slate-900' : 'text-bone'}`}
+              style={{ textShadow: isDay ? 'none' : '0 2px 28px rgba(0,0,0,0.55)' }}
+            >
               {c.bio[0]}
             </p>
           </Beat>
 
           <Beat progress={scrollYProgress} range={[0.49, 0.54, 0.65, 0.71]} align="right">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+            <p className="font-mono text-[11px] uppercase tracking-[0.45em]" style={{ color: isDay ? '#c0432a' : w.bg }}>
               {lang === 'es' ? 'El recorrido' : 'The journey'}
             </p>
-            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
+            <p
+              className={`mt-5 max-w-2xl font-display text-[clamp(1.9rem,5.2vw,4.6rem)] uppercase leading-[1.0] tracking-[-0.01em] text-balance ${isDay ? 'text-slate-900' : 'text-bone'}`}
+              style={{ textShadow: isDay ? 'none' : '0 2px 28px rgba(0,0,0,0.55)' }}
+            >
               {c.bio[1] ?? c.bio[0]}
             </p>
           </Beat>
 
           <Beat progress={scrollYProgress} range={[0.74, 0.79, 0.88, 0.93]} align="left">
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+            <p className="font-mono text-[11px] uppercase tracking-[0.45em]" style={{ color: isDay ? '#c0432a' : w.bg }}>
               {lang === 'es' ? 'Ahora mismo' : 'Right now'}
             </p>
-            <p className={`mt-4 max-w-2xl font-display text-[clamp(1.8rem,5vw,4.4rem)] uppercase leading-[1.02] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
+            <p
+              className={`mt-5 max-w-2xl font-display text-[clamp(1.9rem,5.2vw,4.6rem)] uppercase leading-[1.0] tracking-[-0.01em] text-balance ${isDay ? 'text-slate-900' : 'text-bone'}`}
+              style={{ textShadow: isDay ? 'none' : '0 2px 28px rgba(0,0,0,0.55)' }}
+            >
               {c.now}
             </p>
           </Beat>
 
           <Beat progress={scrollYProgress} range={[0.87, 0.92, 0.97, 0.99]} align="center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+            <p className="font-mono text-[11px] uppercase tracking-[0.5em]" style={{ color: w.bg }}>
               {lang === 'es' ? 'Última parada' : 'Last stop'}
             </p>
-            <h2 className={`mt-3 font-display text-[clamp(2.4rem,10vw,8rem)] uppercase leading-[0.85] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
+            <h2
+              className={`mt-4 font-display text-[clamp(2.6rem,11vw,8rem)] uppercase leading-[0.82] tracking-[-0.02em] ${isDay ? 'text-slate-900' : 'text-bone'}`}
+              style={{ textShadow: isDay ? 'none' : '0 4px 40px rgba(0,0,0,0.6)' }}
+            >
               {lang === 'es' ? 'Estación' : 'Station'}
             </h2>
           </Beat>
@@ -390,38 +404,64 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
           <button
             type="button"
             onClick={() => setPanelOpen(true)}
-            className="group absolute"
+            className="group absolute cursor-pointer focus:outline-none"
             style={BOOTH_STYLE}
             aria-label={lang === 'es' ? 'Caseta de información' : 'Information booth'}
           >
-            <span
+            {/* Soft resting glow — always faintly present, breathes on idle */}
+            <motion.span
               aria-hidden
-              className="absolute inset-0 rounded-xl opacity-0 transition-all duration-300 group-hover:opacity-100"
+              className="pointer-events-none absolute inset-0 rounded-2xl"
+              animate={reduced ? undefined : { opacity: [0.18, 0.4, 0.18] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
               style={{
-                background: hexA(w.bg, 0.1),
-                boxShadow: `inset 0 0 0 1px ${hexA(w.bg, 0.5)}, 0 0 40px ${hexA(w.bg, 0.2)}`,
+                boxShadow: `inset 0 0 0 1px ${hexA(w.bg, 0.28)}, 0 0 32px ${hexA(w.bg, 0.18)}`,
               }}
             />
+            {/* Hover glow — brighter framing + warm wash */}
             <span
               aria-hidden
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-1 font-mono text-[8px] uppercase tracking-[0.3em] opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100"
+              className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100 group-focus-visible:opacity-100"
+              style={{
+                background: `radial-gradient(120% 90% at 50% 100%, ${hexA(w.bg, 0.18)} 0%, transparent 70%)`,
+                boxShadow: `inset 0 0 0 1px ${hexA(w.bg, 0.6)}, 0 0 60px ${hexA(w.bg, 0.32)}`,
+              }}
+            />
+            {/* Pin marker */}
+            <span
+              aria-hidden
+              className="absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border backdrop-blur-md transition-transform duration-500 ease-out group-hover:scale-110 group-hover:-translate-y-[55%]"
               style={{
                 borderColor: hexA(w.bg, 0.5),
-                background: 'rgba(0,0,0,0.55)',
+                background: 'rgba(0,0,0,0.4)',
+                color: w.bg,
+                boxShadow: `0 6px 24px rgba(0,0,0,0.5)`,
+              }}
+            >
+              <Info className="h-4 w-4" strokeWidth={1.75} />
+            </span>
+            {/* Label */}
+            <span
+              aria-hidden
+              className="absolute bottom-2 left-1/2 flex -translate-x-1/2 translate-y-1 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.32em] opacity-0 backdrop-blur-md transition-all duration-500 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+              style={{
+                borderColor: hexA(w.bg, 0.5),
+                background: 'rgba(0,0,0,0.6)',
                 color: w.bg,
               }}
             >
-              <Info className="h-2.5 w-2.5" />
               {lang === 'es' ? 'Información' : 'Info'}
             </span>
           </button>
 
-          {/* Day / Night toggle */}
-          <ThemeToggle
-            isDay={isDay}
-            onToggle={() => setIsDay((v) => !v)}
-            lang={lang}
-          />
+          {/* Day / Night toggle — pinned top-right, clear of the fixed navbar */}
+          <div className="absolute right-4 top-[72px] sm:right-6 sm:top-20">
+            <ThemeToggle
+              isDay={isDay}
+              onToggle={() => setIsDay((v) => !v)}
+              lang={lang}
+            />
+          </div>
 
         {/* Project sign — wooden plaque with hanging rope */}
         <Link
@@ -704,9 +744,13 @@ function InfoPanel({ c, lang, isDay, onClose }: { c: Connect; lang: string; isDa
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  const subtleBorder = isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.18);
+  const cardBorder = isDay ? 'rgba(15, 23, 42, 0.1)' : hexA(w.bg, 0.22);
+  const cardBg = isDay ? 'rgba(15, 23, 42, 0.025)' : hexA(w.bg, 0.06);
+
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-8"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -715,28 +759,40 @@ function InfoPanel({ c, lang, isDay, onClose }: { c: Connect; lang: string; isDa
         type="button"
         aria-label="close"
         onClick={onClose}
-        className={`absolute inset-0 backdrop-blur-sm transition-colors duration-300 ${isDay ? 'bg-slate-900/40' : 'bg-black/70'}`}
+        className={`absolute inset-0 backdrop-blur-md transition-colors duration-300 ${isDay ? 'bg-slate-900/30' : 'bg-black/65'}`}
       />
       <motion.div
-        initial={{ opacity: 0, y: 30, scale: 0.97 }}
+        role="dialog"
+        aria-modal="true"
+        initial={{ opacity: 0, y: 40, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 20, scale: 0.98 }}
-        transition={{ duration: 0.45, ease: EASE }}
-        className="relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border p-7 sm:p-9 transition-all duration-300"
+        exit={{ opacity: 0, y: 30, scale: 0.985 }}
+        transition={{ duration: 0.5, ease: EASE }}
+        className="relative z-10 max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border p-6 pt-7 sm:rounded-3xl sm:p-9"
         style={{
-          borderColor: isDay ? 'rgba(15, 23, 42, 0.15)' : hexA(w.bg, 0.4),
-          background: isDay ? 'linear-gradient(180deg, #ffffff, #f8fafc)' : 'linear-gradient(180deg, #140a06, #0a0503)',
+          borderColor: isDay ? 'rgba(15, 23, 42, 0.12)' : hexA(w.bg, 0.32),
+          background: isDay
+            ? 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.92))'
+            : 'linear-gradient(180deg, rgba(20,10,6,0.88), rgba(10,5,3,0.9))',
+          backdropFilter: 'blur(20px) saturate(140%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(140%)',
           boxShadow: isDay
-            ? '0 30px 60px -15px rgba(15, 23, 42, 0.15)'
-            : `0 30px 120px ${hexA(w.deep, 0.6)}`,
+            ? '0 30px 80px -20px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255,255,255,0.6)'
+            : `0 40px 120px ${hexA(w.deep, 0.7)}, inset 0 1px 0 ${hexA(w.bg, 0.12)}`,
         }}
       >
+        {/* Mobile grab handle */}
+        <div
+          aria-hidden
+          className="mx-auto mb-5 h-1 w-10 rounded-full sm:hidden"
+          style={{ background: isDay ? 'rgba(15,23,42,0.15)' : hexA(w.bg, 0.3) }}
+        />
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+            <p className="font-mono text-[10px] uppercase tracking-[0.45em]" style={{ color: isDay ? '#c0432a' : w.bg }}>
               {lang === 'es' ? 'Ficha' : 'File'}
             </p>
-            <h3 className={`mt-2 font-display text-3xl uppercase leading-none ${isDay ? 'text-slate-900' : 'text-bone'}`}>
+            <h3 className={`mt-2.5 font-display text-3xl uppercase leading-none tracking-[-0.01em] ${isDay ? 'text-slate-900' : 'text-bone'}`}>
               {social.alias}
             </h3>
           </div>
@@ -744,65 +800,58 @@ function InfoPanel({ c, lang, isDay, onClose }: { c: Connect; lang: string; isDa
             type="button"
             onClick={onClose}
             aria-label="close"
-            className={`rounded-full border p-2 transition-colors ${isDay ? 'text-slate-500 hover:text-slate-900' : 'text-bone/70 hover:text-bone'}`}
-            style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.15)' : hexA(w.bg, 0.3) }}
+            className={`shrink-0 cursor-pointer rounded-full border p-2 transition-colors ${isDay ? 'text-slate-500 hover:bg-slate-900/5 hover:text-slate-900' : 'text-bone/70 hover:bg-white/5 hover:text-bone'}`}
+            style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.12)' : hexA(w.bg, 0.3) }}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+        <p className="mt-9 font-mono text-[10px] uppercase tracking-[0.45em]" style={{ color: isDay ? '#c0432a' : w.bg }}>
           {lang === 'es' ? 'Datos' : 'Facts'}
         </p>
-        <dl className="mt-3 divide-y" style={{ borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.15) }}>
+        <dl className="mt-3.5 divide-y" style={{ borderColor: subtleBorder }}>
           {c.facts.map((f) => (
             <div
               key={f.k}
               className="flex items-baseline justify-between gap-6 py-3"
-              style={{ borderColor: hexA(w.bg, 0.15) }}
             >
-              <dt className="font-mono text-[11px] uppercase tracking-[0.2em] text-bone/50">{f.k}</dt>
-              <dd className="text-right text-sm font-medium text-bone">{f.v}</dd>
+              <dt className={`font-mono text-[11px] uppercase tracking-[0.2em] ${isDay ? 'text-slate-400' : 'text-bone/50'}`}>{f.k}</dt>
+              <dd className={`text-right text-sm font-medium ${isDay ? 'text-slate-800' : 'text-bone'}`}>{f.v}</dd>
             </div>
           ))}
         </dl>
 
-        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: w.bg }}>
+        <p className="mt-9 font-mono text-[10px] uppercase tracking-[0.45em]" style={{ color: isDay ? '#c0432a' : w.bg }}>
           {lang === 'es' ? 'Cómo trabajo' : 'How I work'}
         </p>
-        <div className="mt-3 space-y-3">
+        <div className="mt-3.5 space-y-3">
           {c.values.map((v) => (
             <div
               key={v.label}
-              className="rounded-xl border p-4"
-              style={{
-                borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.2),
-                background: isDay ? 'rgba(15, 23, 42, 0.02)' : hexA(w.bg, 0.06),
-              }}
+              className="rounded-2xl border p-4 sm:p-5"
+              style={{ borderColor: cardBorder, background: cardBg }}
             >
               <p className={`font-display text-lg uppercase leading-none ${isDay ? 'text-slate-900' : 'text-bone'}`}>{v.label}</p>
-              <p className={`mt-1.5 text-sm leading-relaxed ${isDay ? 'text-slate-600' : 'text-bone/60'}`}>{v.note}</p>
+              <p className={`mt-2 text-sm leading-relaxed ${isDay ? 'text-slate-600' : 'text-bone/60'}`}>{v.note}</p>
             </div>
           ))}
         </div>
 
-        <p className="mt-8 font-mono text-[10px] uppercase tracking-[0.4em]" style={{ color: isDay ? '#d04f2f' : w.bg }}>
+        <p className="mt-9 font-mono text-[10px] uppercase tracking-[0.45em]" style={{ color: isDay ? '#c0432a' : w.bg }}>
           {lang === 'es' ? 'Contacto' : 'Contact'}
         </p>
-        <div className="mt-3 space-y-4">
+        <div className="mt-3.5 space-y-4">
           <div
-            className="rounded-xl border p-5 transition-colors duration-300"
-            style={{
-              borderColor: isDay ? 'rgba(15, 23, 42, 0.08)' : hexA(w.bg, 0.25),
-              background: isDay ? 'rgba(15, 23, 42, 0.02)' : hexA(w.bg, 0.06),
-            }}
+            className="rounded-2xl border p-5 transition-colors duration-300"
+            style={{ borderColor: cardBorder, background: cardBg }}
           >
-            <p className={`font-mono text-[10px] uppercase tracking-wider ${isDay ? 'text-slate-500' : 'text-bone/50'}`}>
+            <p className={`font-mono text-[10px] uppercase tracking-[0.2em] ${isDay ? 'text-slate-500' : 'text-bone/50'}`}>
               {c.cta.lead}
             </p>
             <a
               href={SOCIALS[0].href}
-              className={`mt-2 block break-words font-display text-2xl uppercase hover:opacity-85 transition-opacity ${isDay ? 'text-slate-900' : 'text-bone'}`}
+              className={`mt-2.5 block break-words font-display text-2xl uppercase transition-opacity hover:opacity-80 ${isDay ? 'text-slate-900' : 'text-bone'}`}
             >
               {SOCIALS[0].handle}
             </a>
@@ -812,14 +861,14 @@ function InfoPanel({ c, lang, isDay, onClose }: { c: Connect; lang: string; isDa
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4 pt-2">
+          <div className="flex flex-wrap gap-4 pt-1">
             {SOCIALS.slice(1).map((s) => (
               <a
                 key={s.label}
                 href={s.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider underline underline-offset-4 hover:opacity-75 transition-opacity ${isDay ? 'text-slate-700' : 'text-bone/80'}`}
+                className={`inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider underline underline-offset-4 transition-opacity hover:opacity-75 ${isDay ? 'text-slate-700' : 'text-bone/80'}`}
               >
                 {s.label}
                 <ExternalLink className="h-3.5 w-3.5" />

@@ -12,10 +12,11 @@ export function ThemeToggle({ isDay, onToggle, className }: ThemeToggleProps) {
   return (
     <div
       className={cn(
-        'flex w-16 h-8 p-1 rounded-full cursor-pointer transition-all duration-300',
+        'flex w-16 h-8 p-1 rounded-full cursor-pointer transition-all duration-500 ease-out',
+        'shadow-lg backdrop-blur-md outline-none focus-visible:ring-2 focus-visible:ring-offset-0',
         isDay
-          ? 'bg-white border border-zinc-200'
-          : 'bg-zinc-950 border border-zinc-800',
+          ? 'bg-white/90 border border-zinc-200 focus-visible:ring-amber-400/60'
+          : 'bg-zinc-950/80 border border-zinc-700 focus-visible:ring-zinc-400/50',
         className
       )}
       onClick={onToggle}
@@ -28,7 +29,7 @@ export function ThemeToggle({ isDay, onToggle, className }: ThemeToggleProps) {
         {/* Left thumb */}
         <div
           className={cn(
-            'flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300',
+            'flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-500 ease-out',
             isDay
               ? 'transform translate-x-8 bg-gray-200'
               : 'transform translate-x-0 bg-zinc-800'
@@ -44,7 +45,7 @@ export function ThemeToggle({ isDay, onToggle, className }: ThemeToggleProps) {
         {/* Right icon */}
         <div
           className={cn(
-            'flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-300',
+            'flex justify-center items-center w-6 h-6 rounded-full transition-transform duration-500 ease-out',
             isDay
               ? 'transform -translate-x-8'
               : 'bg-transparent'
