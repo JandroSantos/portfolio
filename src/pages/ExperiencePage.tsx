@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useSpring } from 'framer-motion';
 import { CHARACTERS } from '@/data/characters';
 import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
@@ -227,6 +227,53 @@ function ExperienceCard({ item, index, ink }: {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+/* ── Cursor-following liquid-glass button ─────────────────────────────────
+   Anchored bottom-center, drifts toward the pointer with a spring so it
+   "follows the mouse" while never leaving the screen. */
+function CursorGlassButton({ label, onClick }: { label: string; onClick: () => void }) {
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const sx = useSpring(x, { stiffness: 140, damping: 17, mass: 0.5 });
+  const sy = useSpring(y, { stiffness: 140, damping: 17, mass: 0.5 });
+
+  useEffect(() => {
+    const fine = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    if (!fine) return;
+    const onMove = (e: MouseEvent) => {
+      const ax = window.innerWidth / 2;
+      const ay = window.innerHeight - 80; // anchor near bottom-center
+      const dx = e.clientX - ax;
+      const dy = e.clientY - ay;
+      const max = 130; // max drift radius from anchor
+      const dist = Math.hypot(dx, dy) || 1;
+      const k = Math.min(1, max / dist) * 0.55;
+      x.set(dx * k);
+      y.set(dy * k);
+    };
+    window.addEventListener('mousemove', onMove);
+    return () => window.removeEventListener('mousemove', onMove);
+  }, [x, y]);
+
+  return (
+    <div
+      className="-translate-x-1/2"
+      style={{ position: 'fixed', bottom: '2.25rem', left: '50%', zIndex: 300 }}
+    >
+      <motion.div
+        style={{ x: sx, y: sy }}
+        initial={{ opacity: 0, y: 24, scale: 0.9 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 14, scale: 0.92 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+      >
+        <GlassButton size="lg" onClick={onClick}>
+          {label}
+        </GlassButton>
+      </motion.div>
+    </div>
+  );
+}
+
 export default function ExperiencePage() {
   const { lang, d } = useLanguage();
   const ink = exec.world.ink;
@@ -251,21 +298,14 @@ export default function ExperiencePage() {
   return (
     <PageShell character={exec}>
 
-      {/* ── Floating CTA — rendered at page root, truly fixed ──────────────── */}
+      {/* ── Cursor-following CTA — rendered at page root, truly fixed ──────── */}
       <AnimatePresence>
         {skillsInView && !unlocked && (
-          <motion.div
-            key="floating-cta"
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.92 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-            style={{ position: 'fixed', bottom: '2.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 300 }}
-          >
-            <GlassButton size="lg" onClick={() => setUnlocked(true)}>
-              {lang === 'es' ? '✦  Descubre mi stack' : '✦  Discover my stack'}
-            </GlassButton>
-          </motion.div>
+          <CursorGlassButton
+            key="cursor-cta"
+            label={lang === 'es' ? 'Descubre mi stack' : 'Discover my stack'}
+            onClick={() => setUnlocked(true)}
+          />
         )}
       </AnimatePresence>
 
@@ -335,23 +375,22 @@ export default function ExperiencePage() {
         <section className="mx-auto mt-12 w-full max-w-4xl px-4 pb-36 sm:px-6">
           <div
             ref={skillsRef}
-            className="relative w-full overflow-hidden rounded-3xl"
+            className="relative w-full rounded-3xl"
             style={{ minHeight: 480 }}
           >
-            {/* background image */}
-            <img src={SKILLS_BG} alt="" aria-hidden
-              className="absolute inset-0 h-full w-full object-cover object-center select-none"
-              style={{ filter: 'brightness(0.4) saturate(1.3)' }} />
-
-            {/* dark radial vignette */}
-            <div className="absolute inset-0"
-              style={{ background: 'radial-gradient(ellipse 80% 70% at 50% 55%, transparent 15%, rgba(3,3,8,0.78) 100%)' }} />
-
-            {/* top / bottom fade */}
-            <div className="absolute inset-x-0 top-0 h-20"
-              style={{ background: 'linear-gradient(to bottom, rgba(3,3,8,0.88), transparent)' }} />
-            <div className="absolute inset-x-0 bottom-0 h-20"
-              style={{ background: 'linear-gradient(to top, rgba(3,3,8,0.88), transparent)' }} />
+            {/* clipped backdrop layer (image + overlays) — kept separate so
+                node tooltips in the content layer are never cut off */}
+            <div className="absolute inset-0 overflow-hidden rounded-3xl">
+              <img src={SKILLS_BG} alt="" aria-hidden
+                className="absolute inset-0 h-full w-full object-cover object-center select-none"
+                style={{ filter: 'brightness(0.4) saturate(1.3)' }} />
+              <div className="absolute inset-0"
+                style={{ background: 'radial-gradient(ellipse 80% 70% at 50% 55%, transparent 15%, rgba(3,3,8,0.78) 100%)' }} />
+              <div className="absolute inset-x-0 top-0 h-20"
+                style={{ background: 'linear-gradient(to bottom, rgba(3,3,8,0.88), transparent)' }} />
+              <div className="absolute inset-x-0 bottom-0 h-20"
+                style={{ background: 'linear-gradient(to top, rgba(3,3,8,0.88), transparent)' }} />
+            </div>
 
             {/* content */}
             <div className="relative z-10 flex flex-col items-center justify-center py-16 px-4">
@@ -373,8 +412,11 @@ export default function ExperiencePage() {
                         />
                       ))}
                       <div className="relative flex items-center justify-center rounded-full select-none"
-                        style={{ width: 52, height: 52, background: `${ink}16`, border: `1px solid ${ink}38`, boxShadow: `0 0 24px ${ink}28`, color: ink, fontSize: 18 }}>
-                        ✦
+                        style={{ width: 52, height: 52, background: `${ink}16`, border: `1px solid ${ink}38`, boxShadow: `0 0 24px ${ink}28` }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden style={{ color: ink }}>
+                          <path d="M12 2l1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6L12 2z"
+                            fill="currentColor" opacity="0.9" />
+                        </svg>
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -397,7 +439,7 @@ export default function ExperiencePage() {
                     <div className="flex w-full justify-center" style={{ paddingTop: 44 }}>
                       <SkillOrbit inner={ORBIT_INNER} middle={ORBIT_MIDDLE} outer={ORBIT_OUTER} />
                     </div>
-                    <div className="w-full overflow-hidden">
+                    <div className="w-full">
                       <SkillMarquee row1={MARQUEE_ROW1} row2={MARQUEE_ROW2} />
                     </div>
                   </motion.div>

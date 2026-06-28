@@ -40,10 +40,11 @@ function SkillBall({ skill }: { skill: Skill }) {
       />
       {/* Tooltip */}
       <div
-        className="absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 hidden group-hover:block whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-mono text-white pointer-events-none"
+        className="absolute bottom-[calc(100%+8px)] left-1/2 z-30 -translate-x-1/2 hidden group-hover:block whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-mono text-white pointer-events-none border"
         style={{
-          background: 'rgba(0,0,0,0.8)',
+          background: 'rgba(0,0,0,0.85)',
           backdropFilter: 'blur(8px)',
+          borderColor: 'rgba(255,255,255,0.12)',
         }}
       >
         {skill.name}
@@ -57,7 +58,7 @@ export function SkillMarquee({ row1, row2 }: SkillMarqueeProps) {
   const r2 = repeat(row2, 4);
 
   return (
-    <div className="relative overflow-hidden w-full">
+    <div className="relative overflow-hidden w-full pt-12 pb-2">
       <style>{`
         @keyframes scroll-left {
           0% { transform: translateX(0); }

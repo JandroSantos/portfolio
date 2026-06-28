@@ -1,28 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Check,
   GraduationCap,
   Trophy,
   Sparkles,
-  Languages,
-  Server,
-  Cpu,
-  Layers,
-  Webhook,
-  Plug,
-  Bot,
-  BrainCircuit,
-  MessageSquareCode,
-  Globe2,
-  Code2,
+  Network,
   Flame,
-  type LucideIcon,
 } from 'lucide-react';
 import { CHARACTERS } from '@/data/characters';
 import { useLanguage } from '@/hooks/useLanguage';
 import PageShell from '@/components/layout/PageShell';
 import { hexA, prefersReducedMotion } from '@/lib/utils';
+import SkillTree from '@/components/studies/SkillTree';
+import QuestPanel from '@/components/studies/QuestPanel';
+import { catIcon } from '@/components/studies/skillIcons';
 
 const nerd = CHARACTERS[3];
 const GREEN = nerd.world.bg; // #7fae5f
@@ -32,109 +24,19 @@ const BONE = '#e8ece4';
 const BG = '#070b07';
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-/* ─── Icon resolution ───────────────────────────────────────────────────
-   Brand logos come from the Simple Icons CDN (colorful, crisp, zero-bundle);
-   non-brand concepts fall back to a matching lucide glyph. Anything broken
-   degrades gracefully to a category glyph. */
-const SIMPLE: Record<string, { slug: string; color: string }> = {
-  react: { slug: 'react', color: '61DAFB' },
-  svelte: { slug: 'svelte', color: 'FF3E00' },
-  typescript: { slug: 'typescript', color: '3178C6' },
-  html: { slug: 'html5', color: 'E34F26' },
-  css: { slug: 'css3', color: '1572B6' },
-  tailwind: { slug: 'tailwindcss', color: '06B6D4' },
-  python: { slug: 'python', color: 'FFD43B' },
-  node: { slug: 'nodedotjs', color: '5FA04E' },
-  rust: { slug: 'rust', color: 'F74C00' },
-  webgpu: { slug: 'webgpu', color: '005A9C' },
-};
-
-const LUCIDE: Record<string, LucideIcon> = {
-  apis: Webhook,
-  mcp: Plug,
-  prompting: MessageSquareCode,
-  llms: BrainCircuit,
-  agentes: Bot,
-  agents: Bot,
-  español: Globe2,
-  spanish: Globe2,
-  'inglés b2': Languages,
-  'english b2': Languages,
-  'arquitectura de agentes': Bot,
-  'agent architecture': Bot,
-  'diseño de sistemas': Layers,
-  'system design': Layers,
-};
-
-const CAT_ICON: Record<string, LucideIcon> = {
-  frontend: Layers,
-  backend: Server,
-  ia: Cpu,
-  ai: Cpu,
-  idiomas: Languages,
-  languages: Languages,
-};
-
-function catIcon(label: string): LucideIcon {
-  return CAT_ICON[label.toLowerCase()] ?? Code2;
-}
-
-/* ─── Skill tile (loadout slot) ─────────────────────────────────────────── */
-function SkillTile({ name, fallback }: { name: string; fallback: LucideIcon }) {
-  const key = name.toLowerCase();
-  const simple = SIMPLE[key];
-  const [imgFailed, setImgFailed] = useState(false);
-  const Fallback = LUCIDE[key] ?? fallback;
-
+/* Tiny section header used between blocks. */
+function SectionLabel({ icon: Icon, children }: { icon: typeof Trophy; children: string }) {
   return (
-    <motion.div
-      whileHover={{ y: -4, scale: 1.04 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 22 }}
-      className="group/tile flex min-w-[88px] flex-col items-center gap-2.5 rounded-2xl px-4 py-3.5"
-      style={{
-        background: 'rgba(255,255,255,0.035)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.10)',
-      }}
-    >
-      <span
-        className="relative flex h-11 w-11 items-center justify-center rounded-xl"
-        style={{
-          background: hexA(GREEN_DEEP, 0.18),
-          border: `1px solid ${hexA(GREEN, 0.22)}`,
-        }}
-      >
-        <span
-          className="pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 group-hover/tile:opacity-100"
-          style={{ boxShadow: `0 0 22px ${hexA(GREEN, 0.5)}` }}
-        />
-        {simple && !imgFailed ? (
-          <img
-            src={`https://cdn.simpleicons.org/${simple.slug}/${simple.color}`}
-            alt={name}
-            width={24}
-            height={24}
-            loading="lazy"
-            draggable={false}
-            onError={() => setImgFailed(true)}
-            className="h-6 w-6 select-none transition-transform duration-300 group-hover/tile:scale-110"
-          />
-        ) : (
-          <Fallback
-            size={22}
-            color={GREEN_LIGHT}
-            strokeWidth={1.7}
-            className="transition-transform duration-300 group-hover/tile:scale-110"
-          />
-        )}
+    <div className="mb-10 flex items-center gap-3">
+      <Icon size={16} color={GREEN} strokeWidth={1.9} />
+      <span className="font-mono text-[11px] uppercase tracking-[0.5em]" style={{ color: GREEN }}>
+        {children}
       </span>
       <span
-        className="font-mono text-[10px] uppercase tracking-wider"
-        style={{ color: hexA(BONE, 0.72) }}
-      >
-        {name}
-      </span>
-    </motion.div>
+        className="h-px flex-1"
+        style={{ background: `linear-gradient(90deg, ${hexA(GREEN, 0.4)}, transparent)` }}
+      />
+    </div>
   );
 }
 
@@ -144,7 +46,6 @@ export default function StudiesPage() {
   const reduce = prefersReducedMotion();
   const isEs = lang === 'es';
 
-  // Faux skill totals for the hero "loadout" stats — derived from real data.
   const stats = useMemo(() => {
     const skillCount = s.skills.reduce((acc, g) => acc + g.items.length, 0);
     return {
@@ -248,7 +149,7 @@ export default function StudiesPage() {
             initial={reduce ? false : { opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.16, ease: EASE }}
-            className="mt-6 max-w-xl text-base leading-relaxed sm:text-lg"
+            className="mt-6 max-w-xl text-[15px] leading-relaxed sm:text-lg"
             style={{ color: hexA(BONE, 0.64) }}
           >
             {s.intro}
@@ -289,78 +190,49 @@ export default function StudiesPage() {
         </div>
       </section>
 
-      {/* ══ TECH STACK — glass loadout panels ════════════════════════ */}
-      <section className="relative z-10 mx-auto mt-28 max-w-6xl px-5 sm:px-8">
-        <div className="mb-10 flex items-center gap-3">
-          <Code2 size={16} color={GREEN} strokeWidth={1.9} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.5em]" style={{ color: GREEN }}>
-            {isEs ? 'Stack & habilidades' : 'Stack & Skills'}
-          </span>
-          <span className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${hexA(GREEN, 0.4)}, transparent)` }} />
-        </div>
+      {/* ══ SKILL TREE — the core deliverable ════════════════════════ */}
+      <section className="relative z-10 mx-auto mt-28 max-w-6xl px-4 sm:px-8">
+        <SectionLabel icon={Network}>{isEs ? 'Árbol de talentos' : 'Talent Tree'}</SectionLabel>
 
-        <div className="grid gap-5 md:grid-cols-2">
-          {s.skills.map((group, gi) => {
-            const Cat = catIcon(group.label);
-            return (
-              <motion.div
-                key={group.label}
-                initial={reduce ? false : { opacity: 0, y: 26 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-10%' }}
-                transition={{ duration: 0.7, delay: gi * 0.08, ease: EASE }}
-                className="relative overflow-hidden rounded-[28px] p-6 sm:p-7"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  backdropFilter: 'blur(22px) saturate(140%)',
-                  WebkitBackdropFilter: 'blur(22px) saturate(140%)',
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12), 0 24px 50px rgba(0,0,0,0.35)',
-                }}
-              >
-                {/* corner glow */}
-                <div
-                  className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full"
-                  style={{ background: `radial-gradient(circle, ${hexA(GREEN, 0.22)} 0%, transparent 70%)`, filter: 'blur(10px)' }}
-                />
-
-                <div className="relative mb-6 flex items-center gap-3">
-                  <span
-                    className="flex h-10 w-10 items-center justify-center rounded-xl"
-                    style={{ background: hexA(GREEN_DEEP, 0.22), border: `1px solid ${hexA(GREEN, 0.3)}` }}
-                  >
-                    <Cat size={19} color={GREEN_LIGHT} strokeWidth={1.8} />
-                  </span>
-                  <div>
-                    <h3 className="font-display text-lg uppercase tracking-wide" style={{ color: BONE }}>
-                      {group.label}
-                    </h3>
-                    <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: hexA(GREEN_LIGHT, 0.7) }}>
-                      {group.items.length} {group.items.length === 1 ? (isEs ? 'skill' : 'skill') : (isEs ? 'skills' : 'skills')}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="relative flex flex-wrap gap-2.5">
-                  {group.items.map((item) => (
-                    <SkillTile key={item} name={item} fallback={Cat} />
-                  ))}
-                </div>
-              </motion.div>
-            );
-          })}
+        <div
+          className="relative overflow-hidden rounded-[32px] px-3 py-10 sm:px-8 sm:py-14"
+          style={{
+            background: 'rgba(255,255,255,0.025)',
+            border: '1px solid rgba(255,255,255,0.07)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.10), 0 30px 70px rgba(0,0,0,0.4)',
+          }}
+        >
+          {/* soft inner glow */}
+          <div
+            className="pointer-events-none absolute left-1/2 top-0 h-64 w-[80%] -translate-x-1/2 rounded-full"
+            style={{ background: `radial-gradient(circle, ${hexA(GREEN, 0.16)} 0%, transparent 70%)`, filter: 'blur(40px)' }}
+            aria-hidden
+          />
+          <SkillTree
+            root="Jandro"
+            groups={s.skills}
+            milestones={s.items}
+            green={GREEN}
+            greenDeep={GREEN_DEEP}
+            greenLight={GREEN_LIGHT}
+            bone={BONE}
+            reduce={reduce}
+            isEs={isEs}
+          />
+          <p
+            className="relative mt-6 text-center font-mono text-[10px] uppercase tracking-[0.3em]"
+            style={{ color: hexA(BONE, 0.4) }}
+          >
+            {isEs ? 'Pasa el cursor sobre un nodo' : 'Hover a node to inspect'}
+          </p>
         </div>
       </section>
 
       {/* ══ EDUCATION — achievement cards ════════════════════════════ */}
       <section className="relative z-10 mx-auto mt-28 max-w-6xl px-5 sm:px-8">
-        <div className="mb-10 flex items-center gap-3">
-          <Trophy size={16} color={GREEN} strokeWidth={1.9} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.5em]" style={{ color: GREEN }}>
-            {isEs ? 'Logros desbloqueados' : 'Unlocked Achievements'}
-          </span>
-          <span className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${hexA(GREEN, 0.4)}, transparent)` }} />
-        </div>
+        <SectionLabel icon={Trophy}>{isEs ? 'Logros desbloqueados' : 'Unlocked Achievements'}</SectionLabel>
 
         <div className="grid gap-5 sm:grid-cols-3">
           {s.items.map((it, i) => (
@@ -407,7 +279,7 @@ export default function StudiesPage() {
                 <GraduationCap size={12} strokeWidth={1.8} />
                 {it.org}
               </p>
-              <p className="relative mt-3.5 text-xs leading-relaxed" style={{ color: hexA(BONE, 0.58) }}>
+              <p className="relative mt-3.5 text-[13px] leading-relaxed" style={{ color: hexA(BONE, 0.58) }}>
                 {it.note}
               </p>
             </motion.article>
@@ -415,83 +287,19 @@ export default function StudiesPage() {
         </div>
       </section>
 
-      {/* ══ CURRENTLY LEARNING — quest progress ══════════════════════ */}
+      {/* ══ CURRENTLY LEARNING — locked quests ═══════════════════════ */}
       <section className="relative z-10 mx-auto mb-36 mt-28 max-w-6xl px-5 sm:px-8">
-        <div className="mb-10 flex items-center gap-3">
-          <Flame size={16} color={GREEN} strokeWidth={1.9} />
-          <span className="font-mono text-[11px] uppercase tracking-[0.5em]" style={{ color: GREEN }}>
-            {isEs ? 'Misiones activas' : 'Active Quests'}
-          </span>
-          <span className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${hexA(GREEN, 0.4)}, transparent)` }} />
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {s.learning.map((item, i) => {
-            const pct = 35 + ((i * 17) % 45); // deterministic faux-progress
-            return (
-              <motion.div
-                key={item}
-                initial={reduce ? false : { opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-10%' }}
-                transition={{ duration: 0.6, delay: i * 0.08, ease: EASE }}
-                className="overflow-hidden rounded-[22px] px-5 py-4"
-                style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  backdropFilter: 'blur(18px)',
-                  WebkitBackdropFilter: 'blur(18px)',
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.10)',
-                }}
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: BONE }}>
-                    <SkillTileDot />
-                    {item}
-                  </span>
-                  <span className="font-mono text-[10px] tracking-widest" style={{ color: hexA(GREEN_LIGHT, 0.8) }}>
-                    {pct}%
-                  </span>
-                </div>
-                {/* XP bar */}
-                <div
-                  className="relative h-2 overflow-hidden rounded-full"
-                  style={{ background: hexA(BONE, 0.08) }}
-                >
-                  <motion.div
-                    className="relative h-full rounded-full"
-                    style={{ background: `linear-gradient(90deg, ${GREEN_DEEP}, ${GREEN_LIGHT})` }}
-                    initial={reduce ? false : { width: 0 }}
-                    whileInView={{ width: `${pct}%` }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 1.1, delay: 0.1 + i * 0.08, ease: EASE }}
-                  >
-                    {!reduce && (
-                      <span
-                        className="absolute inset-y-0 left-0 w-1/3"
-                        style={{
-                          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)',
-                          animation: 'xpshimmer 2.4s ease-in-out infinite',
-                        }}
-                      />
-                    )}
-                  </motion.div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+        <SectionLabel icon={Flame}>{isEs ? 'Misiones activas' : 'Active Quests'}</SectionLabel>
+        <QuestPanel
+          items={s.learning}
+          green={GREEN}
+          greenDeep={GREEN_DEEP}
+          greenLight={GREEN_LIGHT}
+          bone={BONE}
+          reduce={reduce}
+          fallback={catIcon('frontend')}
+        />
       </section>
     </PageShell>
-  );
-}
-
-/* small pulsing status dot for quest rows */
-function SkillTileDot() {
-  return (
-    <span
-      className="inline-block h-2 w-2 rounded-full"
-      style={{ background: GREEN, boxShadow: `0 0 8px ${GREEN}` }}
-    />
   );
 }

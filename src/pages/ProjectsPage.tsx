@@ -1,163 +1,14 @@
-import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { ArrowDown, Sparkles } from 'lucide-react';
 import { CHARACTERS } from '@/data/characters';
 import { useLanguage } from '@/hooks/useLanguage';
+import { hexA } from '@/lib/utils';
 import PageShell from '@/components/layout/PageShell';
+import ProjectCard from '@/components/projects/ProjectCard';
 
 const builder = CHARACTERS[1];
 
-/* ─── Film-strip perforation row ───────────────────────────────────── */
-function FilmPerfs({ color }: { color: string }) {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none flex w-full items-center gap-[5px] overflow-hidden px-2 py-[5px]"
-    >
-      {Array.from({ length: 80 }).map((_, i) => (
-        <span
-          key={i}
-          className="block h-[9px] w-[9px] shrink-0 rounded-[2px]"
-          style={{ background: `${color}20`, border: `1px solid ${color}18` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/* ─── Single cinematic project panel ───────────────────────────────── */
-type ProjectItem = {
-  number: string;
-  name: string;
-  category: string;
-  year: string;
-  role: string;
-  description: string;
-  stack: string[];
-};
-
-function ProjectPanel({
-  item,
-  index,
-  accent,
-}: {
-  item: ProjectItem;
-  index: number;
-  accent: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start end', 'end start'],
-  });
-  const titleY = useTransform(scrollYProgress, [0, 1], [90, -90]);
-  const infoY = useTransform(scrollYProgress, [0, 1], [40, -40]);
-  const panelOpacity = useTransform(scrollYProgress, [0, 0.12, 0.88, 1], [0, 1, 1, 0]);
-
-  const isEven = index % 2 === 1;
-
-  return (
-    <div
-      ref={ref}
-      className="relative flex min-h-[100svh] flex-col overflow-hidden border-t"
-      style={{ borderColor: `${accent}18` }}
-    >
-      {/* Top film perforations */}
-      <FilmPerfs color={accent} />
-
-      {/* Frame counter */}
-      <div
-        className="absolute right-6 top-8 z-10 font-mono text-[11px] tracking-widest select-none"
-        style={{ color: `${accent}45` }}
-      >
-        {String(index + 1).padStart(4, '0')}
-      </div>
-
-      {/* Ghost BUILD/CREO word */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 flex items-center justify-center select-none font-display font-black uppercase leading-none"
-        style={{
-          fontSize: 'clamp(8rem, 28vw, 22rem)',
-          color: `${accent}05`,
-        }}
-      >
-        {isEven ? 'BUILD' : 'CREO'}
-      </span>
-
-      {/* Main content */}
-      <motion.div
-        style={{ opacity: panelOpacity }}
-        className={`relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center gap-12 px-6 py-24 sm:px-16 lg:flex-row lg:items-center lg:justify-between lg:gap-20 ${
-          isEven ? 'lg:flex-row-reverse' : ''
-        }`}
-      >
-        {/* Giant title column */}
-        <div className={`flex-1 ${isEven ? 'text-right' : 'text-left'}`}>
-          <motion.p
-            className="font-mono text-[11px] uppercase tracking-[0.4em]"
-            style={{ y: infoY, color: `${accent}55` }}
-          >
-            {item.category} — {item.year}
-          </motion.p>
-          <motion.h2
-            className="mt-2 font-display font-black uppercase leading-[0.82] text-bone"
-            style={{ y: titleY, fontSize: 'clamp(3.5rem, 13vw, 11rem)' }}
-          >
-            {item.name}
-          </motion.h2>
-          {/* Stack as film credits */}
-          <motion.p
-            className="mt-6 font-mono text-sm italic tracking-wider"
-            style={{ y: infoY, color: `${accent}70` }}
-          >
-            {'// ' + item.stack.map((s) => s.toUpperCase()).join(' · ')}
-          </motion.p>
-        </div>
-
-        {/* Info column */}
-        <motion.div
-          style={{ y: infoY }}
-          className={`w-full space-y-6 lg:max-w-sm ${isEven ? 'text-right lg:text-right' : 'text-left'}`}
-        >
-          <div>
-            <p
-              className="font-mono text-[10px] uppercase tracking-[0.35em]"
-              style={{ color: accent }}
-            >
-              {item.role}
-            </p>
-            <p className="mt-3 text-base leading-relaxed text-bone/55">
-              {item.description}
-            </p>
-          </div>
-          <div
-            className={`flex flex-wrap gap-2 ${isEven ? 'justify-end' : 'justify-start'}`}
-          >
-            {item.stack.map((s) => (
-              <span
-                key={s}
-                className="font-mono text-[10px] uppercase tracking-[0.3em]"
-                style={{
-                  color: accent,
-                  border: `1px solid ${accent}35`,
-                  padding: '3px 8px',
-                  borderRadius: 2,
-                }}
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-        </motion.div>
-      </motion.div>
-
-      {/* Bottom film perforations */}
-      <FilmPerfs color={accent} />
-    </div>
-  );
-}
-
-/* ─── Page ──────────────────────────────────────────────────────────── */
 export default function ProjectsPage() {
   const { d, lang } = useLanguage();
   const p = d.projects;
@@ -168,142 +19,189 @@ export default function ProjectsPage() {
     target: heroRef,
     offset: ['start start', 'end start'],
   });
-  const heroY = useTransform(heroScroll, [0, 1], [0, -100]);
-  const heroOpacity = useTransform(heroScroll, [0, 0.7, 1], [1, 1, 0]);
-  const figurineY = useTransform(heroScroll, [0, 1], [0, -60]);
+  const heroContentY = useTransform(heroScroll, [0, 1], [0, -80]);
+  const figurineY = useTransform(heroScroll, [0, 1], [0, -50]);
+  const heroFade = useTransform(heroScroll, [0, 0.8], [1, 0]);
 
   return (
     <PageShell character={builder} background="#050403">
-
-      {/* ══ OPENING TITLE CARD ═══════════════════════════════════════ */}
-      <div
-        ref={heroRef}
-        className="relative flex min-h-[100svh] flex-col overflow-hidden"
-        style={{ background: '#050403' }}
-      >
-        {/* Grain texture */}
+      {/* Ambient amber aurora field, fixed behind everything */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-            backgroundRepeat: 'repeat',
-            backgroundSize: '120px',
-          }}
+          className="absolute -top-1/4 left-1/2 h-[80vh] w-[80vh] -translate-x-1/2 rounded-full blur-[120px]"
+          style={{ background: hexA(w.bg, 0.16) }}
         />
+        <div
+          className="absolute bottom-0 right-[-10%] h-[60vh] w-[60vh] rounded-full blur-[140px]"
+          style={{ background: hexA(w.deep, 0.18) }}
+        />
+      </div>
 
-        {/* Top perfs */}
-        <FilmPerfs color={w.bg} />
-
-        {/* Vertical "ALWAYS SHIPPING" */}
-        <motion.div
-          style={{ y: heroY, opacity: heroOpacity }}
-          className="absolute bottom-20 left-6 sm:left-10"
+      {/* ══ HERO ══════════════════════════════════════════════════════ */}
+      <section
+        ref={heroRef}
+        className="relative flex min-h-[100svh] flex-col justify-center overflow-hidden px-6 pb-20 pt-32 sm:px-10 lg:px-16"
+      >
+        {/* Ghost word */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -left-2 top-1/2 -translate-y-1/2 select-none font-display uppercase leading-none"
+          style={{ fontSize: 'clamp(9rem, 30vw, 26rem)', color: hexA(w.bg, 0.04) }}
         >
-          <p
-            className="select-none font-mono text-[10px] uppercase tracking-[0.65em] text-bone/25"
-            style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}
-          >
-            ALWAYS SHIPPING
-          </p>
-        </motion.div>
+          {builder.ghost}
+        </span>
 
-        {/* Center: heading left, figurine right */}
         <motion.div
-          style={{ y: heroY, opacity: heroOpacity }}
-          className="relative z-10 mx-auto flex flex-1 flex-col items-start justify-center px-10 sm:px-20 lg:flex-row lg:items-center lg:justify-between"
+          style={{ y: heroContentY, opacity: heroFade }}
+          className="relative z-10 mx-auto flex w-full max-w-7xl flex-col items-start gap-12 lg:flex-row lg:items-center lg:justify-between"
         >
+          {/* Copy */}
           <div className="max-w-2xl">
-            <p
-              className="mb-4 font-mono text-[11px] uppercase tracking-[0.45em]"
-              style={{ color: w.bg }}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2 backdrop-blur-xl"
+              style={{
+                background: `linear-gradient(135deg, ${hexA(w.panel, 0.18)}, ${hexA(w.deep, 0.1)})`,
+                border: `1px solid ${hexA(w.bg, 0.3)}`,
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.12)',
+              }}
             >
-              {p.eyebrow}
-            </p>
+              <Sparkles className="h-3.5 w-3.5" style={{ color: w.accent }} aria-hidden />
+              <span
+                className="font-mono text-[10px] uppercase tracking-[0.35em]"
+                style={{ color: hexA(w.accent, 0.9) }}
+              >
+                {p.eyebrow}
+              </span>
+            </motion.div>
+
             <motion.h1
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-              className="font-display font-black uppercase leading-[0.82] text-bone"
-              style={{ fontSize: 'clamp(4.5rem, 18vw, 14rem)' }}
+              transition={{ delay: 0.12, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="mt-6 font-display uppercase leading-[0.85] text-bone"
+              style={{ fontSize: 'clamp(3.75rem, 14vw, 11rem)' }}
             >
               {p.title}
             </motion.h1>
+
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.55, duration: 0.9 }}
-              className="mt-8 max-w-sm text-sm leading-relaxed text-bone/45"
+              transition={{ delay: 0.4, duration: 0.9 }}
+              className="mt-8 max-w-md text-base leading-relaxed text-bone/55"
             >
               {p.intro}
             </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.9 }}
+              className="mt-10 flex items-center gap-3 text-bone/40"
+            >
+              <ArrowDown className="h-4 w-4 animate-bounce" aria-hidden />
+              <span className="font-mono text-[10px] uppercase tracking-[0.4em]">
+                {lang === 'es' ? 'Desliza' : 'Scroll'}
+              </span>
+            </motion.div>
           </div>
 
-          {/* Figurine */}
+          {/* Figurine on a glass pedestal */}
           <motion.div
             initial={{ opacity: 0, x: 40 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ delay: 0.25, duration: 1, ease: [0.16, 1, 0.3, 1] }}
             style={{ y: figurineY }}
-            className="pointer-events-none mt-12 shrink-0 lg:mt-0"
+            className="pointer-events-none relative mx-auto hidden shrink-0 md:block"
           >
+            <div
+              aria-hidden
+              className="absolute left-1/2 top-1/2 h-[70%] w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[90px]"
+              style={{ background: hexA(w.bg, 0.35) }}
+            />
             <motion.img
               layoutId="world-figurine"
               src={builder.image}
-              alt="The Builder"
+              alt="The Builder figurine"
               draggable={false}
-              className="h-[48svh] w-auto select-none object-contain object-bottom lg:h-[66svh]"
-              style={{ filter: `drop-shadow(0 0 100px ${w.bg}55)` }}
+              className="relative h-[42svh] w-auto select-none object-contain object-bottom lg:h-[60svh]"
+              style={{ filter: `drop-shadow(0 30px 60px ${hexA(w.deep, 0.5)})` }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             />
           </motion.div>
         </motion.div>
+      </section>
 
-        {/* Ghost page number */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -right-4 -top-4 select-none font-display font-black leading-none"
-          style={{ fontSize: 'clamp(10rem, 35vw, 30rem)', color: `${w.bg}05` }}
-        >
-          02
-        </span>
-
-        {/* Bottom perfs */}
-        <FilmPerfs color={w.bg} />
-      </div>
-
-      {/* ══ CINEMATIC PROJECT PANELS ════════════════════════════════ */}
-      {p.items.map((item, i) => (
-        <ProjectPanel key={item.number} item={item} index={i} accent={w.bg} />
-      ))}
-
-      {/* ══ CLOSING FIN PANEL ══════════════════════════════════════ */}
-      <div
-        className="relative flex min-h-[55svh] flex-col overflow-hidden border-t"
-        style={{ background: '#030201', borderColor: `${w.bg}18` }}
-      >
-        <FilmPerfs color={w.bg} />
-        <div className="flex flex-1 items-center justify-center py-24 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <h2
-              className="font-display font-black italic leading-none text-bone"
-              style={{ fontSize: 'clamp(6rem, 24vw, 20rem)' }}
-            >
-              FIN.
-            </h2>
-            <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.5em] text-bone/28">
-              {lang === 'es' ? 'más proyectos en camino' : 'more coming soon'}
-            </p>
-          </motion.div>
+      {/* ══ PROJECT SHOWCASE GRID ════════════════════════════════════ */}
+      <section className="relative z-10 mx-auto w-full max-w-7xl px-6 pb-28 sm:px-10 lg:px-16">
+        <div className="grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-2">
+          {p.items.map((item, i) => (
+            <ProjectCard
+              key={item.number}
+              item={item}
+              index={i}
+              world={w}
+              viewLabel={p.view}
+              featured={i === 0}
+            />
+          ))}
         </div>
-        <FilmPerfs color={w.bg} />
-      </div>
+      </section>
 
+      {/* ══ CLOSING CTA ══════════════════════════════════════════════ */}
+      <section className="relative z-10 mx-auto w-full max-w-5xl px-6 pb-32 sm:px-10">
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="relative overflow-hidden rounded-[32px] px-8 py-16 text-center backdrop-blur-2xl sm:px-16 sm:py-20"
+          style={{
+            background: `linear-gradient(160deg, ${hexA(w.panel, 0.16)}, ${hexA(w.deep, 0.1)} 70%, ${hexA('#000', 0.2)})`,
+            border: `1px solid ${hexA(w.bg, 0.28)}`,
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), 0 40px 90px -40px ${hexA(w.deep, 0.6)}`,
+          }}
+        >
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 top-0 h-px"
+            style={{ background: `linear-gradient(90deg, transparent, ${hexA(w.accent, 0.6)}, transparent)` }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-0 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px]"
+            style={{ background: hexA(w.bg, 0.25) }}
+          />
+
+          <p
+            className="font-mono text-[11px] uppercase tracking-[0.4em]"
+            style={{ color: hexA(w.accent, 0.85) }}
+          >
+            {lang === 'es' ? '¿Construimos algo?' : "Let's build something"}
+          </p>
+          <h2
+            className="mx-auto mt-4 max-w-3xl font-display uppercase leading-[0.9] text-bone"
+            style={{ fontSize: 'clamp(2.5rem, 9vw, 6rem)' }}
+          >
+            {lang === 'es' ? 'Más proyectos en camino' : 'More projects coming'}
+          </h2>
+          <a
+            href="#contact"
+            className="mt-10 inline-flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-full px-7 font-mono text-[12px] font-semibold uppercase tracking-[0.25em] text-bone transition-transform duration-300 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2"
+            style={{
+              background: `linear-gradient(135deg, ${hexA(w.bg, 0.4)}, ${hexA(w.deep, 0.3)})`,
+              border: `1px solid ${hexA(w.bg, 0.5)}`,
+              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.16), 0 14px 36px -12px ${hexA(w.bg, 0.5)}`,
+            }}
+          >
+            <Sparkles className="h-4 w-4" style={{ color: w.accent }} aria-hidden />
+            {lang === 'es' ? 'Hablemos' : "Let's talk"}
+          </a>
+        </motion.div>
+      </section>
     </PageShell>
   );
 }
