@@ -10,9 +10,6 @@ import { SkillMarquee } from '@/components/ui/skill-marquee';
 
 const exec = CHARACTERS[2];
 
-const SKILLS_BG =
-  'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1600&q=80';
-
 // ─── Skill data ────────────────────────────────────────────────────────────────
 
 const ORBIT_INNER = [
@@ -381,9 +378,25 @@ export default function ExperiencePage() {
             {/* clipped backdrop layer (image + overlays) — kept separate so
                 node tooltips in the content layer are never cut off */}
             <div className="absolute inset-0 overflow-hidden rounded-3xl">
-              <img src={SKILLS_BG} alt="" aria-hidden loading="lazy" decoding="async"
-                className="absolute inset-0 h-full w-full object-cover object-center select-none"
-                style={{ filter: 'brightness(0.4) saturate(1.3)' }} />
+              {/* Self-hosted cosmic backdrop — no external dependency, instant paint */}
+              <div className="absolute inset-0"
+                style={{
+                  background:
+                    `radial-gradient(120% 90% at 18% 8%, ${ink}26 0%, transparent 42%),` +
+                    `radial-gradient(110% 80% at 88% 18%, #5b3fa340 0%, transparent 45%),` +
+                    `radial-gradient(130% 100% at 50% 120%, #0b1d3a55 0%, transparent 55%),` +
+                    `linear-gradient(180deg, #06070d 0%, #090a12 100%)`,
+                }} />
+              {/* faint starfield */}
+              <div className="absolute inset-0 opacity-[0.5]" style={{
+                backgroundImage:
+                  'radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.5), transparent),' +
+                  'radial-gradient(1px 1px at 70% 20%, rgba(255,255,255,0.35), transparent),' +
+                  'radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,0.4), transparent),' +
+                  'radial-gradient(1px 1px at 85% 60%, rgba(255,255,255,0.3), transparent),' +
+                  'radial-gradient(1px 1px at 55% 45%, rgba(255,255,255,0.25), transparent)',
+                backgroundRepeat: 'no-repeat',
+              }} />
               <div className="absolute inset-0"
                 style={{ background: 'radial-gradient(ellipse 80% 70% at 50% 55%, transparent 15%, rgba(3,3,8,0.78) 100%)' }} />
               <div className="absolute inset-x-0 top-0 h-20"
