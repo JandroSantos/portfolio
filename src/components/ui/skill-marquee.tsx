@@ -1,3 +1,5 @@
+import { skillIconPath } from '@/lib/skill-icons';
+
 interface Skill {
   name: string;
   icon: string;
@@ -21,23 +23,15 @@ function SkillBall({ skill }: { skill: Skill }) {
         borderColor: 'rgba(255,255,255,0.10)',
       }}
     >
-      <img
-        src={`https://cdn.simpleicons.org/${skill.icon}`}
-        alt={skill.name}
-        className="h-8 w-8 object-contain"
-        style={{ filter: 'brightness(0) invert(1)', opacity: 0.85 }}
-        onError={(e) => {
-          const el = e.target as HTMLImageElement;
-          el.style.display = 'none';
-          const parent = el.parentElement;
-          if (parent) {
-            const span = document.createElement('span');
-            span.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.7);font-family:monospace;font-weight:700;text-align:center;line-height:1.2;';
-            span.textContent = skill.name.slice(0, 3).toUpperCase();
-            parent.appendChild(span);
-          }
-        }}
-      />
+      {skillIconPath(skill.icon) ? (
+        <svg viewBox="0 0 24 24" className="h-8 w-8" fill="#ffffff" style={{ opacity: 0.85 }} aria-hidden>
+          <path d={skillIconPath(skill.icon) as string} />
+        </svg>
+      ) : (
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontFamily: 'monospace', fontWeight: 700, textAlign: 'center', lineHeight: 1.2 }}>
+          {skill.name.slice(0, 3).toUpperCase()}
+        </span>
+      )}
       {/* Tooltip */}
       <div
         className="absolute bottom-[calc(100%+8px)] left-1/2 z-30 -translate-x-1/2 hidden group-hover:block whitespace-nowrap rounded-md px-2 py-1 text-[10px] font-mono text-white pointer-events-none border"

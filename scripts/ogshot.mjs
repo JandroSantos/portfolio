@@ -1,0 +1,10 @@
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+const ep='/opt/pw-browsers/chromium';
+const b=await chromium.launch({executablePath:fs.existsSync(ep)?ep:undefined});
+const p=await b.newContext({viewport:{width:1200,height:630},deviceScaleFactor:1}).then(c=>c.newPage());
+await p.goto('file://'+process.cwd()+'/scripts/ogcard.html',{waitUntil:'networkidle'});
+await new Promise(r=>setTimeout(r,1200));
+await p.screenshot({path:'public/og-image.png'});
+await b.close();
+console.log('wrote public/og-image.png');

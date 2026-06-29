@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { skillIconPath } from '@/lib/skill-icons';
 
 interface Skill {
   name: string;
@@ -73,24 +74,29 @@ function OrbitRing({
                 boxShadow: `0 0 16px ${color}35`,
               }}
             >
-              <img
-                src={`https://cdn.simpleicons.org/${skill.icon}`}
-                alt={skill.name}
-                width={iconSize * 0.52}
-                height={iconSize * 0.52}
-                style={{ filter: 'brightness(0) invert(1)', opacity: 0.88 }}
-                onError={(e) => {
-                  const el = e.target as HTMLImageElement;
-                  el.style.display = 'none';
-                  const parent = el.parentElement;
-                  if (parent) {
-                    const span = document.createElement('span');
-                    span.style.cssText = `font-size:${iconSize * 0.28}px;color:${color};font-family:monospace;font-weight:700;`;
-                    span.textContent = skill.name.slice(0, 2).toUpperCase();
-                    parent.appendChild(span);
-                  }
-                }}
-              />
+              {skillIconPath(skill.icon) ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  width={iconSize * 0.52}
+                  height={iconSize * 0.52}
+                  fill="#ffffff"
+                  style={{ opacity: 0.9 }}
+                  aria-hidden
+                >
+                  <path d={skillIconPath(skill.icon) as string} />
+                </svg>
+              ) : (
+                <span
+                  style={{
+                    fontSize: iconSize * 0.28,
+                    color,
+                    fontFamily: 'monospace',
+                    fontWeight: 700,
+                  }}
+                >
+                  {skill.name.slice(0, 2).toUpperCase()}
+                </span>
+              )}
             </div>
 
             {/* Tooltip */}
