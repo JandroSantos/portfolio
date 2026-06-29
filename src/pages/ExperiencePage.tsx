@@ -309,7 +309,7 @@ export default function ExperiencePage() {
         )}
       </AnimatePresence>
 
-      <div className="w-full">
+      <div className="flex w-full flex-col items-center">
 
         {/* ── Hero ──────────────────────────────────────────────────────────── */}
         <section className="relative flex min-h-[58vh] flex-col items-center justify-center px-6 pt-24 pb-14 text-center">

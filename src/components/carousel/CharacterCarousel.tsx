@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AnimatePresence,
   motion,
@@ -109,6 +109,7 @@ function Figure({
   alt,
   onClick,
   isCenter,
+  label,
 }: {
   role: Role;
   isMobile: boolean;
@@ -118,18 +119,36 @@ function Figure({
   alt: string;
   onClick: () => void;
   isCenter: boolean;
+  label: string;
 }) {
   const range = PARALLAX_RANGE[role];
   // back/center drift *with* the pointer, sides drift slightly against it for a diorama feel.
   const dir = role === 'left' ? -1 : 1;
   const x = useTransform(px, [-1, 1], [-range.x * dir, range.x * dir]);
   const y = useTransform(py, [-1, 1], [-range.y, range.y]);
+  // Only the center & side figures are interactive; back figures are inert scenery.
+  const interactive = role !== 'back';
 
   return (
     <div
       style={{ ...slotStyle(role, isMobile), aspectRatio: '0.62 / 1' }}
-      onClick={onClick}
-      data-cursor={isCenter ? 'hover' : undefined}
+      onClick={interactive ? onClick : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+      role={interactive ? 'button' : undefined}
+      tabIndex={isCenter ? 0 : -1}
+      aria-label={interactive ? label : undefined}
+      aria-hidden={interactive ? undefined : true}
+      className={interactive ? 'cursor-pointer outline-none focus-visible:[&>div]:opacity-90' : undefined}
+      data-cursor={interactive ? 'hover' : undefined}
       data-cursor-label={isCenter ? 'Entrar' : undefined}
     >
       {/* Outer layer: pointer parallax (x/y motion values only). */}
@@ -195,8 +214,8 @@ function NavArrow({
         tap: { scale: reduced ? 1 : 0.92 },
       }}
       transition={{ type: 'spring', stiffness: 520, damping: 30 }}
-      className="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 sm:h-14 sm:w-14"
-      style={{ borderColor: ink, color: ink }}
+      className="group relative flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:h-14 sm:w-14"
+      style={{ borderColor: ink, color: ink, ['--tw-ring-color' as string]: ink, ['--tw-ring-offset-color' as string]: bg }}
     >
       {/* Fill that wipes up from the bottom on hover. */}
       <motion.span
@@ -262,6 +281,15 @@ export default function CharacterCarousel() {
   const px = useSpring(rawX, spring);
   const py = useSpring(rawY, spring);
 
+  // A single rotation guard so drag / arrows / keys / dots can't out-run the 700ms morph.
+  const guardedNav = useCallback((fn: () => void) => {
+    if (lockRef.current) return;
+    lockRef.current = true;
+    setHinted(true);
+    fn();
+    setTimeout(() => (lockRef.current = false), 680);
+  }, []);
+
   // Keyboard arrows when the section is in view.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -270,16 +298,7 @@ export default function CharacterCarousel() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [next, prev]);
-
-  const guardedNav = (fn: () => void) => {
-    if (lockRef.current) return;
-    lockRef.current = true;
-    setHinted(true);
-    fn();
-    setTimeout(() => (lockRef.current = false), 680);
-  };
+  }, [next, prev, guardedNav]);
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (!parallaxOn) return;
@@ -325,7 +344,7 @@ export default function CharacterCarousel() {
       />
 
       {/* Brand label */}
-      <div className="absolute left-5 top-6 z-[60] sm:left-8">
+      <div className="absolute left-5 top-6 z-[60] sm:left-8 sm:top-7">
         <span
           className="font-mono text-[11px] font-semibold uppercase tracking-[0.3em]"
           style={{ color: character.world.ink }}
@@ -335,12 +354,15 @@ export default function CharacterCarousel() {
       </div>
 
       {/* Step counter */}
-      <div className="absolute right-5 top-6 z-[60] sm:right-8">
+      <div className="absolute right-5 top-6 z-[60] sm:right-8 sm:top-7">
         <span
-          className="font-mono text-[11px] font-semibold uppercase tracking-[0.3em]"
+          className="font-mono text-[11px] font-semibold uppercase tracking-[0.3em] tabular-nums"
           style={{ color: character.world.ink }}
         >
-          {String(active % CHARACTER_COUNT + 1).padStart(2, '0')} / {String(CHARACTER_COUNT).padStart(2, '0')}
+          <span style={{ color: character.world.accent }}>
+            {String((active % CHARACTER_COUNT) + 1).padStart(2, '0')}
+          </span>
+          <span style={{ opacity: 0.55 }}> / {String(CHARACTER_COUNT).padStart(2, '0')}</span>
         </span>
       </div>
 
@@ -411,6 +433,11 @@ export default function CharacterCarousel() {
               src={c.image}
               alt={`${d.characters[c.key].alias} — ${d.characters[c.key].section}`}
               isCenter={role === 'center'}
+              label={
+                role === 'center'
+                  ? `${d.carousel.enter} — ${d.characters[c.key].section}`
+                  : `${d.carousel.go} — ${d.characters[c.key].section}`
+              }
               onClick={() => {
                 if (role === 'left') guardedNav(prev);
                 else if (role === 'right') guardedNav(next);
@@ -453,7 +480,7 @@ export default function CharacterCarousel() {
       </AnimatePresence>
 
       {/* Bottom-left: title + nav */}
-      <div className="absolute bottom-6 left-5 z-[60] max-w-[340px] sm:bottom-16 sm:left-12">
+      <div className="absolute bottom-9 left-5 z-[60] max-w-[min(340px,calc(100vw-2.5rem))] sm:bottom-16 sm:left-12">
         <AnimatePresence mode="wait">
           <motion.div
             key={character.key}
@@ -475,7 +502,7 @@ export default function CharacterCarousel() {
               {cc.section}
             </h2>
             <p
-              className="mt-2 text-sm leading-relaxed sm:text-[15px]"
+              className="mt-2 max-w-[34ch] text-[15px] leading-relaxed text-balance"
               style={{ color: character.world.ink, opacity: 0.85 }}
             >
               {cc.tagline}
@@ -502,8 +529,14 @@ export default function CharacterCarousel() {
           <button
             onClick={enterSection}
             data-cursor="hover"
-            className="ml-1 flex items-center gap-1.5 rounded-full border-2 px-4 py-2.5 font-display text-base uppercase sm:hidden"
-            style={{ borderColor: character.world.ink, color: character.world.ink }}
+            aria-label={`${d.carousel.enter} — ${cc.section}`}
+            className="ml-1 flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-full border-2 px-4 py-2.5 font-display text-base uppercase outline-none transition-transform active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-2 sm:hidden"
+            style={{
+              borderColor: character.world.ink,
+              color: character.world.ink,
+              ['--tw-ring-color' as string]: character.world.ink,
+              ['--tw-ring-offset-color' as string]: character.world.bg,
+            }}
           >
             {d.carousel.enter}
             <CornerDownRight size={16} strokeWidth={2.5} />
@@ -516,11 +549,16 @@ export default function CharacterCarousel() {
         onClick={enterSection}
         data-cursor="hover"
         data-cursor-label={d.carousel.go}
+        aria-label={`${d.carousel.enter} — ${cc.section}`}
         initial="rest"
         whileHover="hover"
         whileTap="tap"
-        className="group absolute bottom-16 right-12 z-[60] hidden items-center gap-2 sm:flex"
-        style={{ color: character.world.accent }}
+        className="group absolute bottom-16 right-12 z-[60] hidden cursor-pointer items-center gap-2 rounded-md p-1 outline-none focus-visible:ring-2 focus-visible:ring-offset-4 sm:flex"
+        style={{
+          color: character.world.accent,
+          ['--tw-ring-color' as string]: character.world.accent,
+          ['--tw-ring-offset-color' as string]: character.world.bg,
+        }}
       >
         <motion.span
           className="heading-kinetic text-[clamp(1.4rem,4vw,3rem)]"
@@ -546,24 +584,38 @@ export default function CharacterCarousel() {
       </motion.button>
 
       {/* Dots */}
-      <div className="absolute bottom-3 left-1/2 z-[60] flex -translate-x-1/2 gap-2 sm:bottom-6">
+      <div
+        className="absolute bottom-1 left-1/2 z-[60] flex -translate-x-1/2 items-center sm:bottom-4"
+        role="tablist"
+        aria-label={d.carousel.aria}
+      >
         {CHARACTERS.map((c, i) => {
           const isActive = i === active % CHARACTER_COUNT;
           return (
-            <motion.button
+            <button
               key={c.key}
               onClick={() => guardedNav(() => goTo(i))}
               aria-label={`${d.carousel.go} — ${d.characters[getByIndex(i).key].section}`}
+              aria-selected={isActive}
+              role="tab"
               data-cursor="hover"
-              whileTap={reduced ? undefined : { scale: 0.85 }}
-              className="h-2 rounded-full"
-              style={{ background: character.world.ink }}
-              animate={{
-                width: isActive ? 28 : 8,
-                opacity: isActive ? 1 : 0.4,
-              }}
-              transition={{ duration: 0.4, ease: EASE_OUT }}
-            />
+              className="group flex h-11 cursor-pointer items-center justify-center px-1.5 outline-none"
+            >
+              <motion.span
+                className="block h-2 rounded-full transition-shadow group-focus-visible:ring-2 group-focus-visible:ring-offset-2"
+                style={{
+                  background: character.world.ink,
+                  ['--tw-ring-color' as string]: character.world.ink,
+                  ['--tw-ring-offset-color' as string]: character.world.bg,
+                }}
+                animate={{
+                  width: isActive ? 28 : 8,
+                  opacity: isActive ? 1 : 0.4,
+                }}
+                whileTap={reduced ? undefined : { scale: 0.82 }}
+                transition={{ duration: 0.4, ease: EASE_OUT }}
+              />
+            </button>
           );
         })}
       </div>

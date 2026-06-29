@@ -74,10 +74,15 @@
 /* ------------------------------------------------------------
    Base
    ------------------------------------------------------------ */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+/* Base reset lives in the `base` layer so Tailwind utilities (mx-auto,
+   p-*, m-*, …) — which sit in the higher `utilities` layer — can override it.
+   Unlayered, this reset would beat every margin/padding utility site-wide. */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 }
 
 html {
