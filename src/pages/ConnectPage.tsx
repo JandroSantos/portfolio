@@ -106,7 +106,8 @@ function CanvasJourney({ c, lang }: { c: Connect; lang: string }) {
       setLoadPct(settled / FRAME_COUNT);
       if (settled === FRAME_COUNT) {
         framesRef.current = imgs;
-        anyOk ? setFramesReady(true) : setFramesFailed(true);
+        if (anyOk) setFramesReady(true);
+        else setFramesFailed(true);
       }
       pump();
     };
