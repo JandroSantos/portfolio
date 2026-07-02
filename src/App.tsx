@@ -12,6 +12,7 @@ import ScrollProgress from './components/ui/ScrollProgress';
 import Preloader from './components/Preloader';
 import LanguageSwitchOverlay from './components/ui/LanguageSwitchOverlay';
 import CommandPalette from './components/ui/CommandPalette';
+import RouteTransition from './components/ui/RouteTransition';
 import { usePartyMode } from './components/effects/PartyMode';
 
 /* Route-level code splitting — each page ships its own chunk, so the initial
@@ -58,6 +59,20 @@ function Shell() {
     console.log('%c' + ASCII, 'color:#d2ab5b;font-family:monospace;font-size:11px;');
   }, []);
 
+  // Dynamic, per-route document title — nice tab affordance + SEO.
+  useEffect(() => {
+    const SECTION: Record<string, string> = {
+      '/': 'Full-Stack Developer & AI Engineer',
+      '/connect': 'Connect',
+      '/projects': 'Projects',
+      '/experience': 'Experience',
+      '/studies': 'Studies',
+      '/cv': 'CV',
+    };
+    const label = SECTION[location.pathname];
+    document.title = label ? `Jandro Santos — ${label}` : 'Jandro Santos';
+  }, [location.pathname]);
+
   useEffect(() => on('party', stableParty), [stableParty]);
 
   return (
@@ -66,6 +81,7 @@ function Shell() {
 
       <Cursor />
       <ScrollProgress />
+      <RouteTransition />
       <LanguageSwitchOverlay />
       <Suspense fallback={null}>
         <RemoteCar />

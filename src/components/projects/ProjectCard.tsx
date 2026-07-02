@@ -115,6 +115,21 @@ export default function ProjectCard({
           background: `linear-gradient(90deg, transparent, ${hexA(world.accent, 0.6)}, transparent)`,
         }}
       />
+      {/* Diagonal sheen sweep — a light streak that crosses the glass on hover */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded-[26px]"
+      >
+        <div
+          className="absolute -inset-y-8 -left-1/3 w-1/3 -translate-x-[220%] skew-x-[-18deg] opacity-0 transition-all duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[420%] group-hover:opacity-100"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${hexA('#ffffff', 0.1)} 45%, ${hexA(
+              world.accent,
+              0.14,
+            )} 55%, transparent)`,
+          }}
+        />
+      </div>
 
       {/* Header: index + meta */}
       <div className="relative z-10 flex items-start justify-between gap-4">
@@ -170,8 +185,8 @@ export default function ProjectCard({
 
       {/* Stack chips */}
       <div className="relative z-10 mt-6 flex flex-wrap gap-2">
-        {item.stack.map((s) => (
-          <TechChip key={s} label={s} accent={accent} />
+        {item.stack.map((s, i) => (
+          <TechChip key={s} label={s} accent={accent} index={i} />
         ))}
       </div>
 
@@ -181,7 +196,10 @@ export default function ProjectCard({
           {String(index + 1).padStart(2, '0')} / 03
         </span>
         <span
-          className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-full px-4 font-mono text-[12px] font-medium uppercase tracking-[0.2em] text-bone transition-transform duration-300 group-hover:translate-x-0.5"
+          className="group/cta inline-flex min-h-[44px] cursor-pointer items-center gap-2 overflow-hidden rounded-full px-4 font-mono text-[12px] font-medium uppercase tracking-[0.2em] text-bone outline-none transition-all duration-300 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent group-hover:px-5"
+          tabIndex={0}
+          role="link"
+          aria-label={viewLabel}
           style={{
             background: `linear-gradient(135deg, ${accent}33, ${accent}14)`,
             border: `1px solid ${accent}40`,
@@ -189,11 +207,18 @@ export default function ProjectCard({
           }}
         >
           {viewLabel}
-          <ArrowUpRight
-            className="h-4 w-4 transition-transform duration-300 group-hover:rotate-45"
-            style={{ color: world.accent }}
-            aria-hidden
-          />
+          <span className="relative h-4 w-4 overflow-hidden">
+            <ArrowUpRight
+              className="absolute inset-0 h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-4 group-hover:-translate-y-4"
+              style={{ color: world.accent }}
+              aria-hidden
+            />
+            <ArrowUpRight
+              className="absolute inset-0 h-4 w-4 -translate-x-4 translate-y-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-0 group-hover:translate-y-0"
+              style={{ color: world.accent }}
+              aria-hidden
+            />
+          </span>
         </span>
       </div>
     </motion.article>
